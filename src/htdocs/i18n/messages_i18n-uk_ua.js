@@ -72,8 +72,8 @@ SelectAll: 'Вибрати все',
 UnselectAll: 'Скасувати вибір всіх',
 
 // dlginfo.html
-TENDTXT: '>Дотримуйтесь заходів',
-TABULARTXT: '>Bay Tabular Screen',
+TENDTXT: '>Осцилограма Тренд',
+TABULARTXT: '>Сигнали Комірки',
 CURVTXT: '>Відкрити в Графіках',
 ANOTACAOTXT: 'Анотація:',
 DESBLOQTXT: 'Команда Розблкувати',
