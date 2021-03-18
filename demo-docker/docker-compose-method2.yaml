@@ -12,7 +12,7 @@ services:
 
   # must create a mongodb instance or cluster with a replica set
   jsdemo_mongorsn1:
-    image: mongo:4.2.8
+    image: mongo:4.4
     container_name: jsdemo_mongors1
     hostname: jsdemo_mongorsn1
     restart: unless-stopped
@@ -104,6 +104,10 @@ services:
   grafana:
     image: grafana/grafana
     container_name: jsdemo_grafana
+    # you may need to set the docker user:group to be able to write grafana folder 
+    # set UID and GID variables 
+    # or change default user and  group ids
+    #user: "${UID:-1000}:${GID:-1000}"
     restart: unless-stopped
     volumes: 
       - ./grafana_data:/var/lib/grafana

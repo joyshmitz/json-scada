@@ -1,6 +1,6 @@
 ﻿/* 
  * OPC-UA Client Protocol driver for {json:scada}
- * {json:scada} - Copyright (c) 2020 - Ricardo L. Olsen
+ * {json:scada} - Copyright (c) 2020-2021 - Ricardo L. Olsen
  * This file is part of the JSON-SCADA distribution (https://github.com/riclolsen/json-scada).
  * 
  * This program is free software: you can redistribute it and/or modify  
@@ -17,9 +17,11 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.Tasks;
 using MongoDB.Driver;
 
 namespace OPCUAClientDriver
@@ -31,9 +33,9 @@ namespace OPCUAClientDriver
         public static bool Active = false; // indicates this driver instance is the active node in the moment
         public static Int32 DataBufferLimit = 10000; // limit to start dequeuing and discarding data from the acquisition buffer
         public static Int32 BulkWriteLimit = 1000; // limit of each bulk write to mongodb
-        public static int OPCDefaultPublishingInterval = 2500;
-        public static int OPCDefaultSamplingInterval = 1000;
-        public static uint OPCDefaultQueueSize = 10;
+        //public static int OPCDefaultPublishingInterval = 2500;
+        //public static int OPCDefaultSamplingInterval = 1000;
+        //public static uint OPCDefaultQueueSize = 10;
 
         public static int Main(string[] args)
         {
@@ -164,7 +166,7 @@ namespace OPCUAClientDriver
                 "] not found in configuration!");
                 Environment.Exit(-1);
             }
-
+             
             // read and process connections configuration for this driver instance
             var collconns =
                 DB
@@ -195,29 +197,33 @@ namespace OPCUAClientDriver
             }
 
             // start thread to process redundancy control
-            Thread thrMongoRedundacy =
+            var thrMongoRedundacy =
                 new Thread(() =>
                         ProcessRedundancyMongo(JSConfig));
             thrMongoRedundacy.Start();
 
             // start thread to update acquired data to database
-            Thread thrMongo =
+            var thrMongo =
                 new Thread(() =>
                         ProcessMongo(JSConfig));
             thrMongo.Start();
 
+            // thrMongo.Priority = ThreadPriority.AboveNormal;
+
             // start thread to watch for commands in the database using a change stream
-            //Thread thrMongoCmd =
+            //var thrMongoCmd =
             //    new Thread(() =>
             //            ProcessMongoCmd(JSConfig));
             //thrMongoCmd.Start();
 
-
             Log("Setting up OPC-UA Connections & ASDU handlers...");
+            var thrSrvs = new List<Thread>();
             foreach (OPCUA_connection srv in OPCUAconns)
             {
-                srv.connection = new OPCUAClient(srv.name, srv.protocolConnectionNumber, srv.endpointURLs[0], srv.configFileName, true, Timeout.Infinite);
-                srv.connection.Run(); 
+                srv.connection = new OPCUAClient(srv);
+                // srv.connection.Run();
+                srv.thrOPCStack = new Thread(() => srv.connection.Run());
+                srv.thrOPCStack.Start();
             }
 
             Thread.Sleep(1000);
@@ -228,7 +234,7 @@ namespace OPCUAClientDriver
                 {
                 }
 
-                Thread.Sleep(500);
+                Thread.Sleep(1000);
 
                 if (!Console.IsInputRedirected)
                     if (Console.KeyAvailable)
@@ -244,9 +250,7 @@ namespace OPCUAClientDriver
 
             } while (true);
 
-
             return (int)OPCUAClient.ExitCode;
         }
     }
-
-   }
+}

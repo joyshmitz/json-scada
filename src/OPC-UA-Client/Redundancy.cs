@@ -1,6 +1,6 @@
 ﻿/* 
  * OPC-UA Client Protocol driver for {json:scada}
- * {json:scada} - Copyright (c) 2020 - Ricardo L. Olsen
+ * {json:scada} - Copyright (c) 2020-2021 - Ricardo L. Olsen
  * This file is part of the JSON-SCADA distribution (https://github.com/riclolsen/json-scada).
  * 
  * This program is free software: you can redistribute it and/or modify  
@@ -17,7 +17,7 @@
  */
 
 using System;
-using System.Threading;
+using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -100,7 +100,7 @@ namespace OPCUAClientDriver
                                     Log("Redundancy - DEACTIVATING this Node (other node active)!");
                                     countKeepAliveUpdates = 0;
                                     Random rnd = new Random();
-                                    Thread.Sleep(rnd.Next(1000, 5000));
+                                    await Task.Delay(rnd.Next(1000, 5000));
                                 }
                                 Active = false;
                                 if (lastActiveNodeKeepAliveTimeTag == inst.activeNodeKeepAliveTimeTag)
@@ -186,12 +186,12 @@ namespace OPCUAClientDriver
                                 Log("Redundancy - DEACTIVATING this Node (no instance found)!");
                                 countKeepAliveUpdates = 0;
                                 Random rnd = new Random();
-                                Thread.Sleep(rnd.Next(1000, 5000));
+                                await Task.Delay(rnd.Next(1000, 5000));
                             }
                             Active = false;
                         }
 
-                        Thread.Sleep(5000);
+                        await Task.Delay(5000);
                     }
                     while (true);
                 }
@@ -203,7 +203,7 @@ namespace OPCUAClientDriver
                         .ToString()
                         .Substring(0,
                         e.ToString().IndexOf(Environment.NewLine)));
-                    System.Threading.Thread.Sleep(3000);
+                    await Task.Delay(3000);
                 }
             }
             while (true);

@@ -1,8 +1,8 @@
 <template>
   <v-card>
     <v-row class="pa-4" justify="space-between">
-      <v-col cols="5">
-        <v-treeview style="max-height: 500px" class="overflow-y-auto overflow-x-hidden" 
+      <v-col>
+        <v-treeview style="max-height: 500px;min-width: 250px" class="overflow-y-auto overflow-x-hidden" 
           :active.sync="active"
           :items="items"
           :load-children="fetchDriverInstances"
@@ -26,7 +26,7 @@
           @click="createDriverInstance($event)"
         >
           <v-icon dark> mdi-plus </v-icon>
-          New Driver Instance
+          {{msg.instNewDriverInstance}}
         </v-btn>
       </v-col>
 
@@ -39,23 +39,22 @@
             class="title grey--text text--lighten-1 font-weight-light"
             style="align-self: center"
           >
-            Select a driver instance
+            {{msg.instSelectDriverInstance}}
           </div>
           <v-card
             v-else
             :key="selected.id"
             class="pt-6 mx-auto"
-            flat
-            max-width="440"
+            flat            
           >
-            <v-row class="pb-8 mx-auto" justify="space-between">
+            <v-row min-width="500px" class="mx-auto" justify="space-between">
               <v-select
                 prepend-inner-icon="mdi-cogs"
                 :items="driverNameItems"
-                label="Protocol driver"
+                :label="msg.instProtocolDriver"
                 v-model="selected.protocolDriver"
                 outlined
-                @change="updateProtocolDriverInstance"
+                @change="updateProtocolDriverInstance"                
               ></v-select>
 
               <v-tooltip bottom>
@@ -73,30 +72,24 @@
                     <v-icon dark> mdi-minus </v-icon>
                   </v-btn>
                 </template>
-                <span>Delete driver instance!</span>
+                <span>{{msg.instDeleteDriverInstance}}</span>
               </v-tooltip>
-              <v-switch
-                v-model="selected.enabled"
-                inset
-                color="primary"
-                :label="`Enabled: ${selected.enabled.toString()}`"
-                @change="updateProtocolDriverInstance"
-              ></v-switch>
+
               <v-dialog v-model="dialogDelInst" max-width="290">
                 <v-card>
                   <v-card-title class="headline">
-                    Delete driver instance!
+                    {{msg.instDeleteDriverInstance}}
                   </v-card-title>
 
                   <v-card-text>
-                    Please confirm removal of driver instance.
+                    {{msg.instDeleteDriverInstanceConfirm}}
                   </v-card-text>
 
                   <v-card-actions>
                     <v-spacer></v-spacer>
 
                     <v-btn color="green darken-1" text @click="dialogDelInst = false">
-                      Cancel
+                      {{msg.instDeleteDriverInstanceCancel}}
                     </v-btn>
 
                     <v-btn
@@ -107,12 +100,20 @@
                         deleteDriverInstance($event);
                       "
                     >
-                      Delete Instance!
+                      {{msg.instDeleteDriverInstanceExecute}}
                     </v-btn>
                   </v-card-actions>
                 </v-card>
               </v-dialog>
             </v-row>
+
+            <v-switch
+              v-model="selected.enabled"
+              inset
+              color="primary"
+              :label="`${msg.instEnabled}${selected.enabled?msg.instEnabledTrue:msg.instEnabledFalse}`"
+              @change="updateProtocolDriverInstance"
+            ></v-switch>
 
             <v-text-field
               class="pb-8"
@@ -122,7 +123,7 @@
               min="1"
               clearable
               :input-value="active"
-              label="Instance Number"
+              :label="msg.instInstanceNumber"
               hide-details="auto"
               v-model="selected.protocolDriverInstanceNumber"
               @change="updateProtocolDriverInstance"
@@ -135,7 +136,7 @@
               outlined
               clearable
               :input-value="active"
-              label="Log Level"
+              :label="msg.instLogLevel"
               min="0"
               max="3"
               hide-details="auto"
@@ -150,7 +151,7 @@
               chips
               small-chips
               deletable-chips
-              label="Allowed Nodes List"
+              :label="msg.instAllowedNodesList"
               multiple
               @change="updateProtocolDriverInstance"
             ></v-autocomplete>
@@ -170,15 +171,15 @@
                   <v-icon dark> mdi-plus </v-icon>
                 </v-btn>
               </template>
-              <span>Add new node!</span>
+              <span>{{msg.instAddNewNode}}</span>
             </v-tooltip>
-            <v-dialog v-model="dialogAddNode" max-width="290" class="pa-8">
+            <v-dialog v-model="dialogAddNode" max-width="400" class="pa-8">
               <v-card>
-                <v-card-title class="headline"> Add a new node! </v-card-title>
+                <v-card-title class="headline">{{msg.instAddNewNode}}</v-card-title>
 
                 <v-card-title class="headline">
                   <v-text-field
-                    label="New node name"
+                    :label="msg.instNewNodeName"
                     v-model="newNode"
                   ></v-text-field>
                 </v-card-title>
@@ -187,7 +188,7 @@
                   <v-spacer></v-spacer>
 
                   <v-btn color="green darken-1" text @click="dialogAddNode = false">
-                    Cancel
+                    {{msg.instAddNewNodeCancel}}
                   </v-btn>
 
                   <v-btn
@@ -198,7 +199,7 @@
                       addNewNode($event);
                     "
                   >
-                    Add node!
+                    {{msg.instAddNewNodeExecute}}
                   </v-btn>
                 </v-card-actions>
               </v-card>
@@ -211,18 +212,17 @@
 </template>
 
 <script>
-// const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+import i18n from "@/i18n/i18n-current";
 
 export default {
   name: "ProtocolDriversInstances",
 
   data: () => ({
+    msg: { ...i18n },
     dialogAddNode: false,
     dialogDelInst: false,
     active: [],
     open: [],
-    users: [],
-    roles: [],
     newNode: "",
     driverNameItems: [
       "IEC60870-5-104",
@@ -230,6 +230,7 @@ export default {
       "IEC60870-5-101",
       "IEC60870-5-101_SERVER",
       "DNP3",
+      "OPC-UA",
       "PLCTAG",
       "I104M",
     ],
@@ -240,9 +241,8 @@ export default {
     items() {
       return [
         {
-          name: "Driver Instances",
-          children: this.driverInstances,
-          roles: this.roles,
+          name: this.msg.driverInstances,
+          children: this.driverInstances
         },
       ];
     },
@@ -300,7 +300,7 @@ export default {
         .then((res) => res.json())
         .then((json) => {
           if (json.error) console.log(json);
-          this.fetchDriverInstances(); // refreshes roles
+          this.fetchDriverInstances(); // refreshes instances
         })
         .catch((err) => console.warn(err));
     },
@@ -347,7 +347,7 @@ export default {
         .then((res) => res.json())
         .then((json) => {
           if (json.error) console.log(json);
-          this.fetchDriverInstances(); // refreshes users
+          this.fetchDriverInstances(); // refreshes instances
         })
         .catch((err) => console.warn(err));
     },

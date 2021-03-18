@@ -1,6 +1,6 @@
 ; json-scada.nsi
 ; {json:scada} installer script
-; Copyright 2020 - Ricardo L. Olsen
+; Copyright 2020-2021 - Ricardo L. Olsen
 
 ; NSIS (Nullsoft Scriptable Install System) - http://nsis.sourceforge.net/Main_Page
 
@@ -15,8 +15,8 @@ RequestExecutionLevel admin
 
 ;--------------------------------
 
-!define VERSION "v.0.5"
-!define VERSION_ "0.5.0.0"
+!define VERSION "v.0.8"
+!define VERSION_ "0.8.0.0"
 
 Function .onInit
  System::Call 'keexrnel32::CreateMutexA(i 0, i 0, t "MutexJsonScadaInstall") i .r1 ?e'
@@ -205,6 +205,7 @@ SetRegView 64
   CreateDirectory "$INSTDIR\platform-windows\postgresql-data"
   CreateDirectory "$INSTDIR\platform-windows\postgresql-runtime"
   CreateDirectory "$INSTDIR\platform-windows\nginx_php-runtime"
+  CreateDirectory "$INSTDIR\platform-windows\telegraf-runtime"
 
   ; This is to try to avoid this Postgresql error:
   ; https://edwin.baculsoft.com/2014/05/fixing-postgresql-error-initdb-could-not-change-permissions-of-directory-permission-denied/
@@ -227,6 +228,7 @@ SetRegView 64
   File /a "..\platform-windows\*.ps1"
   File /a "..\platform-windows\nssm.exe"
   File /a "..\platform-windows\vc_redist.x64.exe"
+  File /a "..\platform-windows\dotnet-runtime-5.0.3-win-x64.exe"
 
   ; Visual C redist: needed for timescaledb
   ;ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86" "Major"
@@ -238,12 +240,16 @@ SetRegView 64
   ;  ExecWait '"$INSTDIR\platform-windows\vc_redist.x64.exe" /q'
   ;${EndIf}
   Exec '"$INSTDIR\platform-windows\vc_redist.x64.exe" /q'
+  Exec '"$INSTDIR\platform-windows\dotnet-runtime-5.0.3-win-x64.exe" /install /quiet'
 
   SetOutPath $INSTDIR\platform-windows\nodejs-runtime
   File /a /r "..\platform-windows\nodejs-runtime\*.*"
 
   SetOutPath $INSTDIR\platform-windows\ruby-runtime
   File /a /r "..\platform-windows\ruby-runtime\*.*"
+
+  SetOutPath $INSTDIR\platform-windows\telegraf-runtime
+  File /a /r "..\platform-windows\telegraf-runtime\*.*"
 
   SetOutPath $INSTDIR\docs
   File /a /r "..\docs\*.*"
@@ -308,6 +314,9 @@ SetRegView 64
   SetOutPath $INSTDIR\src\oshmi2json
   File /a /r "..\src\oshmi2json\*.*"
 
+  SetOutPath $INSTDIR\src\oshmi_sync
+  File /a /r "..\src\oshmi_sync\*.*"
+
   SetOutPath $INSTDIR\src\cs_data_processor
   File /a /r "..\src\cs_data_processor\*.*"
 
@@ -357,6 +366,7 @@ SetRegView 64
   File /a "..\conf-templates\nginx_http.conf"  
   File /a "..\conf-templates\nginx_https.conf"  
   File /a "..\conf-templates\json-scada.json"
+  File /a "..\conf-templates\Opc.Ua.DefaultClient.Config.xml"
 
 ; Aqui ficam todos os atalhos no Desktop, apagando os antigos
   Delete "$DESKTOP\JSON-SCADA\*.*"
@@ -392,74 +402,6 @@ SetRegView 64
   Delete "$INSTDIR\platform-windows\browser-data\Default\Cache\*.*"
   RMDir /r "$INSTDIR\platform-windows\browser-data\Default\Web Aplications"
 
-; cria regras de firewall
-
-; Add an application to the firewall exception list - All Networks - All IP Version - Enabled
-;  SimpleFC::AddApplication "OSHMI Webserver" "$INSTDIR\bin\webserver.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;
-;  SimpleFC::AddApplication "OSHMI Shell" "$INSTDIR\bin\hmishell.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;
-;  SimpleFC::AddApplication "OSHMI Mon_Proc" "$INSTDIR\bin\mon_proc.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;
-;  SimpleFC::AddApplication "OSHMI QTester104" "$INSTDIR\bin\QTester104.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;
-;  SimpleFC::AddApplication "OSHMI DNP3" "$INSTDIR\bin\dnp3.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;
-;  SimpleFC::AddApplication "OSHMI MODBUS" "$INSTDIR\bin\modbus.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;
-;  SimpleFC::AddApplication "OSHMI ICCP" "$INSTDIR\bin\iccp_client.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;
-;  SimpleFC::AddApplication "OSHMI NGINX" "$INSTDIR\platform-windows\nginx_php-runtime\nginx.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;
-;  SimpleFC::AddApplication "OSHMI PHP-CGI" "$INSTDIR\platform-windows\nginx_php-runtime\php\php-cgi.exe" 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-
-;  SimpleFC::AddPort 65280 "OSHMI Webserver" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 65281 "OSHMI Webserver" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 8082 "OSHMI Webserver" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 8099 "OSHMI Webserver" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 51909 "OSHMI Shell" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 8081 "OSHMI Mon_Proc" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 51908 "OSHMI Webserver" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 2404 "OSHMI QTester104" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 65280 "OSHMI QTester104" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 65281 "OSHMI QTester104" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 51909 "OSHMI NGINX" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 80 "OSHMI NGINX" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 443 "OSHMI NGINX" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 9000 "OSHMI PHP-CGI" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 8098 "OSHMI ICCP" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 8097 "OSHMI MODBUS" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 8098 "OSHMI MODBUS" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 8098 "OSHMI DNP3" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
-;  SimpleFC::AddPort 8096 "OSHMI DNP3" 256 0 2 "" 1
-;  Pop $0 ; return error(1)/success(0)
   
   ; Verify system locale to set HMI language
   !define LOCALE_ILANGUAGE '0x1' ;System Language Resource ID     

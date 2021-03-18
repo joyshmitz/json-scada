@@ -3,7 +3,7 @@
 /* 
  * A process that watches for raw data updates from protocols using a MongoDB change stream.
  * Convert raw values and update realtime values and statuses.
- * {json:scada} - Copyright (c) 2020 - Ricardo L. Olsen
+ * {json:scada} - Copyright (c) 2020-2021 - Ricardo L. Olsen
  * This file is part of the JSON-SCADA distribution (https://github.com/riclolsen/json-scada).
  * 
  * This program is free software: you can redistribute it and/or modify  
@@ -28,12 +28,10 @@ const sqlFilesPath = '../../sql/'
 const fs = require('fs')
 const mongo = require('mongodb')
 const MongoClient = require('mongodb').MongoClient
-let Server = require('mongodb').Server
 const Queue = require('queue-fifo')
 const { setInterval } = require('timers')
 
 const args = process.argv.slice(2)
-console.log(args)
 var inst = null
 if (args.length > 0)
   inst = parseInt(args[0])
@@ -190,7 +188,7 @@ const pipeline = [
       useUnifiedTopology: true,
       appname: APP_NAME + " Version:" + VERSION + " Instance:" + Instance,
       poolSize: 20,
-      readPreference: Server.READ_PRIMARY
+      readPreference: MongoClient.READ_PRIMARY
     }
 
     if (typeof jsConfig.tlsCaPemFile === 'string' && jsConfig.tlsCaPemFile.trim() !== '') {
@@ -258,7 +256,7 @@ const pipeline = [
                         console.log("Instance config not found, creating one...")
                         db.collection(ProcessInstancesCollectionName).insertOne({
                           processName: APP_NAME,
-                          processInstanceNumber: new mongo.Double(1),
+                          processInstanceNumber: new mongo.Double(Instance),
                           enabled: true,
                           logLevel: new mongo.Double(1),
                           nodeNames: [],
@@ -308,7 +306,7 @@ const pipeline = [
                         if (ProcessActive) { // process active, then update keep alive
                           db.collection(ProcessInstancesCollectionName).updateOne({
                             processName: APP_NAME,
-                            processInstanceNumber: 1
+                            processInstanceNumber: new mongo.Double(Instance),
                           }, {
                             $set: {
                               activeNodeName: jsConfig.nodeName,

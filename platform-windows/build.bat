@@ -28,6 +28,7 @@ dotnet build --runtime win-x64 -c Release -o ..\..\bin\
 cd \json-scada\src\libplctag\PLCTagsClient
 dotnet publish --runtime win-x64 -p:PublishReadyToRun=true -c Release -o ..\..\..\bin\
 
+go env -w GO111MODULE=auto
 set GOBIN=c:\json-scada\bin
 cd \json-scada\src\calculations
 go get ./... 
@@ -40,16 +41,24 @@ go build
 copy /Y i104m ..\..\bin\
 
 cd \json-scada\src\cs_data_processor
-npm update
+call \json-scada\platform-windows\nodejs-runtime\npm update
 cd \json-scada\src\oshmi2json
-npm update
+call \json-scada\platform-windows\nodejs-runtime\npm update
+cd \json-scada\src\oshmi_sync
+call \json-scada\platform-windows\nodejs-runtime\npm update
 cd \json-scada\src\alarm_beep
-npm update
+call \json-scada\platform-windows\nodejs-runtime\npm update
 cd \json-scada\src\server_realtime
-npm update
+call \json-scada\platform-windows\nodejs-runtime\npm update
 cd \json-scada\src\server_realtime_auth
-npm update
+call \json-scada\platform-windows\nodejs-runtime\npm update
+cd \json-scada\src\shell-api
+call \json-scada\platform-windows\nodejs-runtime\npm update
 cd \json-scada\src\htdocs-admin
-npm update
-npm run build
+call \json-scada\platform-windows\nodejs-runtime\npm update
+call \json-scada\platform-windows\nodejs-runtime\npm run build
+cd \json-scada\src\grafana_alert2event
+call \json-scada\platform-windows\nodejs-runtime\npm update
+
+cd ..\..\platform-windows
 

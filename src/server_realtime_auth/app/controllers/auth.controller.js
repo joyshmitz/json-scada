@@ -7,10 +7,101 @@ const Role = db.role
 const Tag = db.tag
 const ProtocolDriverInstance = db.protocolDriverInstance
 const ProtocolConnection = db.protocolConnection
+const UserAction = db.userAction
 const UserActionsQueue = require('../../userActionsQueue')
 
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
+const { response } = require('express')
+
+exports.listUserActions = async (req, res) => {
+  console.log('listUserActions')
+
+  let skip = 0
+  if ("page" in req.body && "itemsPerPage" in req.body)
+    skip = req.body.itemsPerPage * (req.body.page-1)
+  let filter = {}
+  if ("filter" in req.body)
+     filter = req.body.filter
+
+  let limit = req.body.itemsPerPage || 10
+  let orderby = {}
+  if ("sortBy" in req.body && "sortDesc" in req.body) {
+    for(let i=0; i<req.body.sortBy.length; i++) 
+      orderby[req.body.sortBy[i]] = req.body.sortDesc[i]? -1:1
+    if (req.body.sortBy.length === 0)
+      orderby = { timeTag: 1 }
+    }
+  else
+    orderby = { timeTag: 1 }
+
+  let count = await UserAction.count(filter)  
+  console.log(count)
+  UserAction.find(filter).skip(skip).limit(limit).sort(orderby).exec(function (err, userActions) {
+    if (err) {
+      res.status(200).send({ error: err })
+      return
+    }
+    let ret = { userActions: userActions, countTotal: count }
+    res.status(200).send(ret)
+  })
+}
+
+exports.updateTag = async (req, res) => {
+  registerUserAction(req, 'updateTag')
+
+  if ("_id" in req.body){
+    let _id = req.body._id
+    delete req.body._id
+    await Tag.findOneAndUpdate({ _id: _id }, req.body)
+    res.status(200).send({ error: false })
+  }
+  else
+    res.status(200).send({ error: "No _id in update request." })
+}
+
+exports.deleteTag = async (req, res) => {
+  registerUserAction(req, 'deleteTag')
+
+  if ("_id" in req.body){
+  await Tag.findOneAndDelete({ _id: req.body._id })
+  res.status(200).send({ error: false })
+  }
+  else
+    res.status(200).send({ error: "No _id in delete request." })
+}
+
+exports.listTags = async (req, res) => {
+  console.log('listTags')
+
+  let skip = 0
+  if ("page" in req.body && "itemsPerPage" in req.body)
+    skip = req.body.itemsPerPage * (req.body.page-1)
+  let filter = {}
+  if ("filter" in req.body)
+     filter = req.body.filter
+
+  let limit = req.body.itemsPerPage || 10
+  let orderby = {}
+  if ("sortBy" in req.body && "sortDesc" in req.body) {
+    for(let i=0; i<req.body.sortBy.length; i++) 
+      orderby[req.body.sortBy[i]] = req.body.sortDesc[i]? -1:1
+    if (req.body.sortBy.length === 0)
+      orderby = { tag: 1 }
+    }
+  else
+    orderby = { tag: 1 }
+
+  let count = await Tag.count(filter)  
+  Tag.find(filter).skip(skip).limit(limit).sort(orderby).exec(function (err, tags) {
+    if (err) {
+      res.status(200).send({ error: err })
+      return
+    }
+    let ret = { tags: tags, countTotal: count }
+    res.status(200).send(ret)
+  })
+}
 
 exports.updateProtocolConnection = async (req, res) => {
   registerUserAction(req, 'updateProtocolConnection')
@@ -63,6 +154,28 @@ exports.updateProtocolConnection = async (req, res) => {
     if (!('endpointURLs' in req.body)) {
       req.body.endpointURLs = []
     }
+    if (!('configFileName' in req.body)) {
+      req.body.configFileName = "../conf/Opc.Ua.DefaultClient.Config.xml"
+    }
+    if (!('autoCreateTags' in req.body)) {
+      req.body.autoCreateTags = true
+    }
+    if (!('autoCreateTagPublishingInterval' in req.body)) {
+      req.body.autoCreateTagPublishingInterval = 2.5
+    }
+    if (!('autoCreateTagSamplingInterval' in req.body)) {
+      req.body.autoCreateTagSamplingInterval = 0.0
+    }
+    if (!('autoCreateTagQueueSize' in req.body)) {
+      req.body.autoCreateTagQueueSize = 0.0
+    }
+    if (!('timeoutMs' in req.body)) {
+      req.body.timeoutMs = 20000.0
+    }
+    if (!('useSecurity' in req.body)) {
+      req.body.useSecurity = false
+    }
+    
   }
 
   if (
@@ -266,7 +379,7 @@ exports.updateProtocolConnection = async (req, res) => {
 exports.deleteProtocolConnection = async (req, res) => {
   registerUserAction(req, 'deleteProtocolConnection')
 
-  await ProtocolConnection.findOneAndDelete({ _id: req.body._id }, req.body)
+  await ProtocolConnection.findOneAndDelete({ _id: req.body._id })
   res.status(200).send({ error: false })
 }
 
@@ -312,7 +425,7 @@ exports.listProtocolConnections = (req, res) => {
 exports.deleteProtocolDriverInstance = async (req, res) => {
   registerUserAction(req, 'deleteProtocolDriverInstance')
 
-  await ProtocolDriverInstance.findOneAndDelete({ _id: req.body._id }, req.body)
+  await ProtocolDriverInstance.findOneAndDelete({ _id: req.body._id })
   res.status(200).send({ error: false })
 }
 
@@ -484,7 +597,7 @@ exports.updateUser = async (req, res) => {
 exports.createRole = async (req, res) => {
   registerUserAction(req, 'createRole')
 
-  const role = new Role()
+  const role = new Role(req.body)
   role.save(err => {
     if (err) {
       res.status(200).send({ error: err })
@@ -512,14 +625,14 @@ exports.createUser = async (req, res) => {
 exports.deleteRole = async (req, res) => {
   registerUserAction(req, 'deleteRole')
 
-  await Role.findOneAndDelete({ _id: req.body._id }, req.body)
+  await Role.findOneAndDelete({ _id: req.body._id })
   res.status(200).send({ error: false })
 }
 
 exports.deleteUser = async (req, res) => {
   registerUserAction(req, 'deleteUser')
 
-  await User.findOneAndDelete({ _id: req.body._id }, req.body)
+  await User.findOneAndDelete({ _id: req.body._id })
   res.status(200).send({ error: false })
 }
 
@@ -759,7 +872,7 @@ function registerUserAction (req, actionName) {
     // register user action
     UserActionsQueue.enqueue({
       username: ck?.username,
-      request: body,
+      properties: body,
       action: actionName,
       timeTag: new Date()
     })
@@ -769,7 +882,7 @@ function registerUserAction (req, actionName) {
     // register user action
     UserActionsQueue.enqueue({
       username: req.body?.username,
-      request: body,
+      properties: body,
       action: actionName,
       timeTag: new Date()
     })

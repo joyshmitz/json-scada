@@ -2,7 +2,7 @@
 
 /*
  * A realtime point data HTTP web server for JSON SCADA.
- * {json:scada} - Copyright (c) 2020 - Ricardo L. Olsen
+ * {json:scada} - Copyright (c) 2020-2021 - Ricardo L. Olsen
  * This file is part of the JSON-SCADA distribution (https://github.com/riclolsen/json-scada).
  *
  * This program is free software: you can redistribute it and/or modify
@@ -40,7 +40,6 @@ var cookieParser = require('cookie-parser')
 const fs = require('fs')
 const mongo = require('mongodb')
 const MongoClient = require('mongodb').MongoClient
-let Server = require('mongodb')
 const opc = require('./opc_codes.js')
 const { Pool } = require('pg')
 const UserActionsQueue = require('./userActionsQueue')
@@ -127,8 +126,7 @@ let pool = null
 
   // if env variables defined use them, if not set local defaults
   let pgopt = {}
-  if ("PGHOST" in process.env || "PGHOSTADDR" in process.env)
-    pgopt = null
+  if ('PGHOST' in process.env || 'PGHOSTADDR' in process.env) pgopt = null
   else
     pgopt = {
       host: '127.0.0.1',
@@ -546,7 +544,7 @@ let pool = null
 
                 if (AUTHENTICATION) {
                   // go check user right for command in mongodb (not just in the token for better security)
-                  if (!await canSendCommands(req)) { 
+                  if (!(await canSendCommands(req))) {
                     // ACTION DENIED
                     console.log(
                       `User has no right to issue commands! [${username}]`
@@ -616,7 +614,7 @@ let pool = null
 
                     if (AUTHENTICATION) {
                       // check if user has group1 list it can command
-                      if (!await canSendCommandTo(req, data.group1)) { 
+                      if (!(await canSendCommandTo(req, data.group1))) {
                         // ACTION DENIED
                         console.log(
                           `User has no right to issue commands to the group1 destination! [${username}] [${data.group1}]`
@@ -624,8 +622,12 @@ let pool = null
                         OpcResp.Body.ResponseHeader.ServiceResult =
                           opc.StatusCode.BadUserAccessDenied
                         OpcResp.Body.ResponseHeader.StringTable = [
-                          opc.getStatusCodeName(opc.StatusCode.BadUserAccessDenied),
-                          opc.getStatusCodeText(opc.StatusCode.BadUserAccessDenied),
+                          opc.getStatusCodeName(
+                            opc.StatusCode.BadUserAccessDenied
+                          ),
+                          opc.getStatusCodeText(
+                            opc.StatusCode.BadUserAccessDenied
+                          ),
                           'User has no right to issue commands to the group1 destination!'
                         ]
                         res.send(OpcResp)
@@ -636,7 +638,7 @@ let pool = null
                         )
                       }
                     }
-    
+
                     let result = await db.collection(COLL_COMMANDS).insertOne({
                       protocolSourceConnectionNumber: new mongo.Double(
                         data.protocolSourceConnectionNumber
@@ -710,24 +712,93 @@ let pool = null
                     }
 
                     if (findPoint !== null) {
+                      let prevData = await db
+                        .collection(COLL_REALTIME)
+                        .findOne(findPoint)
+
+                      let alarmDisableNew = {}
+                      if (!AUTHENTICATION || userRights?.disableAlarms)
+                        if (
+                          prevData?.alarmDisabled !==
+                          node.Value._Properties?.alarmDisabled
+                        )
+                          alarmDisableNew = {
+                            alarmDisabled: node.Value._Properties?.alarmDisabled
+                          }
+
+                      let annotationNew = {}
+                      if (!AUTHENTICATION || userRights?.enterAnnotations)
+                        if (
+                          prevData?.annotation !==
+                          node.Value._Properties?.annotation
+                        )
+                          annotationNew = {
+                            annotation: node.Value._Properties?.annotation
+                          }
+
+                      let loLimitNew = {}
+                      if (!AUTHENTICATION || userRights?.enterLimits)
+                        if (
+                          prevData?.loLimit !== node.Value._Properties?.loLimit
+                        )
+                          loLimitNew = {
+                            loLimit: new mongo.Double(
+                              node.Value._Properties.loLimit
+                            )
+                          }
+
+                      let hiLimitNew = {}
+                      if (!AUTHENTICATION || userRights?.enterLimits)
+                        if (
+                          prevData?.hiLimit !== node.Value._Properties?.hiLimit
+                        )
+                          hiLimitNew = {
+                            hiLimit: new mongo.Double(
+                              node.Value._Properties.hiLimit
+                            )
+                          }
+
+                      // loloLimit: node.Value._Properties.loLimit,
+                      // lololoLimit: node.Value._Properties.loLimit,
+                      // hihiLimit: node.Value._Properties.hiLimit,
+                      // hihihiLimit: node.Value._Properties.hiLimit,
+
+                      let notesNew = {}
+                      if (!AUTHENTICATION || userRights?.enterNotes)
+                        if (prevData?.notes !== node.Value._Properties?.notes)
+                          notesNew = {
+                            notes: node.Value._Properties.notes
+                          }
+
+                      let valueNew = {}
+                      if (
+                        'substituted' in node.Value._Properties &&
+                        'newValue' in node.Value._Properties
+                      )
+                        if (!AUTHENTICATION || userRights?.substituteValues)
+                          if (
+                            prevData?.value !== node.Value._Properties.newValue
+                          )
+                            valueNew = {
+                              value: new mongo.Double(
+                                node.Value._Properties.newValue
+                              )
+                            }
+
+                      let set = {
+                        $set: {
+                          ...alarmDisableNew,
+                          ...annotationNew,
+                          ...loLimitNew,
+                          ...hiLimitNew,
+                          ...notesNew,
+                          ...valueNew
+                        }
+                      }
+
                       let result = await db
                         .collection(COLL_REALTIME)
-                        .updateOne(findPoint, {
-                          $set: {
-                            ...((!AUTHENTICATION || userRights?.disableAlarms)? {alarmDisabled: node.Value._Properties.alarmDisabled }:{}),
-                            ...((!AUTHENTICATION || userRights?.enterAnnotations)? {annotation: node.Value._Properties.annotation}:{}),
-                            ...((!AUTHENTICATION || userRights?.enterLimits)? {loLimit: new mongo.Double( node.Value._Properties.loLimit )}:{}),
-                            // loloLimit: node.Value._Properties.loLimit,
-                            // lololoLimit: node.Value._Properties.loLimit,
-                            ...((!AUTHENTICATION || userRights?.enterLimits)? {hiLimit: new mongo.Double( node.Value._Properties.hiLimit )}:{}),
-                            // hihiLimit: node.Value._Properties.hiLimit,
-                            // hihihiLimit: node.Value._Properties.hiLimit,
-                            ...((!AUTHENTICATION || userRights?.enterLimits)? {hysteresis: new mongo.Double(node.Value._Properties.hysteresis)}:{}),
-                            ...((!AUTHENTICATION || userRights?.enterNotes)? {notes: node.Value._Properties.notes}:{}),
-                            ...(('substituted' in node.Value._Properties && 'newValue' in node.Value._Properties && (!AUTHENTICATION || userRights?.substituteValues))
-                              ? { value: node.Value._Properties.newValue } : {})
-                          }
-                        })
+                        .updateOne(findPoint, set)
                       if (
                         typeof result.result.n === 'number' &&
                         result.result.n === 1
@@ -739,10 +810,55 @@ let pool = null
                           username: username,
                           pointKey: node.NodeId.Id,
                           action: 'Update Properties',
-                          properties: node.Value._Properties,
+                          properties: set['$set'],
                           timeTag: new Date()
                         })
-      
+
+                        // insert event for changed annotation
+                        if ('annotation' in annotationNew) {
+                          let eventDate = new Date()
+                          db.collection(COLL_SOE).insertOne({
+                            tag: prevData.tag,
+                            pointKey: prevData._id,
+                            group1: prevData?.group1,
+                            description: prevData?.description,
+                            eventText: (annotationNew.annotation.trim()==='')?'🏷️🗑️':'🏷️🔒', // &#127991;
+                            invalid: false,
+                            priority: prevData?.priority,
+                            timeTag: eventDate,
+                            timeTagAtSource: eventDate,
+                            timeTagAtSourceOk: true,
+                            ack: 1
+                          })
+                        }
+
+                        // insert event for changed value
+                        if ('value' in valueNew) {
+                          let eventDate = new Date()
+                          let eventText = ''
+                          if (prevData?.type === 'digital')
+                            eventText = (valueNew.value == 0)
+                              ? prevData?.eventTextFalse
+                              : prevData?.eventTextTrue
+                          else
+                            eventText =
+                              valueNew.value.toFixed(2) +
+                              ' ' +
+                              prevData?.unit
+                          db.collection(COLL_SOE).insertOne({
+                            tag: prevData.tag,
+                            pointKey: prevData._id,
+                            group1: prevData?.group1,
+                            description: prevData?.description,
+                            eventText: eventText,
+                            invalid: false,
+                            priority: prevData?.priority,
+                            timeTag: eventDate,
+                            timeTagAtSource: eventDate,
+                            timeTagAtSourceOk: true,
+                            ack: 1
+                          })
+                        }
                       } else {
                         // some updateOne error
                         OpcResp.Body.Results.push(
@@ -1009,7 +1125,8 @@ let pool = null
                 let Results = []
                 if ('NodesToRead' in req.body.Body) {
                   req.body.Body.NodesToRead.map(node => {
-                    let Result = { // will return this if point not found or access denied
+                    let Result = {
+                      // will return this if point not found or access denied
                       StatusCode: opc.StatusCode.BadNotFound,
                       NodeId: node.NodeId,
                       Value: null,
@@ -1023,12 +1140,18 @@ let pool = null
                         node.NodeId.Id === pointInfo.tag ||
                         node.NodeId.Id === pointInfo._id
                       ) {
-
                         // check for group1 list in user rights (from token)
-                        if (AUTHENTICATION && userRights.group1List.length>0){
-                          if ( ![-1, -2].includes(pointInfo._id) && !userRights.group1List.includes(pointInfo.group1) ){
+                        if (
+                          AUTHENTICATION &&
+                          userRights.group1List.length > 0
+                        ) {
+                          if (
+                            ![-1, -2].includes(pointInfo._id) &&
+                            !userRights.group1List.includes(pointInfo.group1)
+                          ) {
                             // Access to data denied! (return null value and properties)
-                            Result.StatusCode = opc.StatusCode.BadUserAccessDenied
+                            Result.StatusCode =
+                              opc.StatusCode.BadUserAccessDenied
                             break
                           }
                         }
@@ -1159,8 +1282,8 @@ let pool = null
                         : null
 
                     // check for group1 list in user rights (from token)
-                    if (AUTHENTICATION && userRights.group1List.length>0){
-                      if ( !userRights.group1List.includes(node.group1) ){
+                    if (AUTHENTICATION && userRights.group1List.length > 0) {
+                      if (!userRights.group1List.includes(node.group1)) {
                         // Access to data denied!
                         return node
                       }
@@ -1456,7 +1579,7 @@ let pool = null
                       filterDateLte,
                       filterGroup,
                       filterPriority,
-                      { ack: { $lte: (endDateTime!==null)?2:1 } } // when realtime query (endDate=null) filter out eliminated (ack=2) events
+                      { ack: { $lte: endDateTime !== null ? 2 : 1 } } // when realtime query (endDate=null) filter out eliminated (ack=2) events
                     ]
                   },
                   {}
@@ -1764,7 +1887,7 @@ let pool = null
           useUnifiedTopology: true,
           appname: APP_NAME,
           poolSize: 20,
-          readPreference: Server.READ_PRIMARY
+          readPreference: MongoClient.READ_PRIMARY
         }
 
         if (
