@@ -71,6 +71,13 @@ services:
     volumes:
       - ../src/cs_data_processor:/cs_data_processor
 
+  cs_custom_processor_update:
+    image: node:current-alpine3.12
+    container_name: js_cs_custom_processor_update
+    command:  sh -c "npm install -g npm && cd /cs_custom_processor && npm update"
+    volumes:
+      - ../src/cs_custom_processor:/cs_custom_processor
+
   server_realtime_update:
     image: node:current-alpine3.12
     container_name: js_server_realtime_update
@@ -88,7 +95,7 @@ services:
   htdocs_admin_update:
     image: node:current-alpine3.12
     container_name: js_htdocs_admin_update
-    command:  sh -c "npm install -g npm && cd /htdocs-admin && npm update && npm run build"
+    command:  sh -c "npm install -g npm && cd /htdocs-admin && npm install && npm run build"
     volumes:
       - ../src/htdocs-admin:/htdocs-admin
 
@@ -105,3 +112,10 @@ services:
     command:  sh -c "npm install -g npm && cd /oshmi2json && npm update"
     volumes:
       - ../src/oshmi2json:/oshmi2json
+
+  telegraf_listener_update:
+    image: node:current-alpine3.12
+    container_name: js_telegraf_listener_update
+    command:  sh -c "npm install -g npm && cd /telegraf-listener && npm update"
+    volumes:
+      - ../src/telegraf-listener:/telegraf-listener

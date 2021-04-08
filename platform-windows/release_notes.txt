@@ -1,6 +1,6 @@
     {json:scada} 
     
-    © 2008-2020 - Ricardo L. Olsen 
+    © 2008-2021 - Ricardo L. Olsen 
     (https://www.linkedin.com/in/ricardo-olsen/)
 
     This program is free software: you can redistribute it and/or modify
@@ -118,6 +118,24 @@ See official repo:
 
 Inkscape+SAGE:
  - See http://wiki.inkscape.org/wiki/index.php/Compiling_Inkscape_on_Windows_with_MSYS2.
+
+-------------------------------------------------------------------
+
+Notes for version 0.8: 
+
+ - Telegraf data sources integration.
+ - Added a custom script processor.
+ - Windows Installer do not wrongly overwrite some config files anymore.
+ - Experimental OPC UA client driver.
+ - DotNet 5.0.4 runtime added to installer.
+ - Various enhancements on Admin panel, Tags and User Actions tabs.
+ - New config_viewers.js options for locale/tz date/time formatting on Tabular/Alarms/Events viewers.
+ - Various enhancements and fixes.
+
+Requirements:
+
+ - Windows 10 64 bits or Server 2016, Windows PowerShell.
+ - Open SSL binaries for 64-bit Windows, https://slproweb.com/products/Win32OpenSSL.html.
 
 -------------------------------------------------------------------
 

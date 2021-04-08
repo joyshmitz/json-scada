@@ -1,3 +1,4 @@
+const Double = require('@mongoosejs/double');
 const config = require('../config/auth.config')
 const db = require('../models')
 const fs = require('fs')
@@ -12,95 +13,120 @@ const UserActionsQueue = require('../../userActionsQueue')
 
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
-const { response } = require('express')
+// const { response } = require('express')
 
 exports.listUserActions = async (req, res) => {
   console.log('listUserActions')
 
   let skip = 0
-  if ("page" in req.body && "itemsPerPage" in req.body)
-    skip = req.body.itemsPerPage * (req.body.page-1)
+  if ('page' in req.body && 'itemsPerPage' in req.body)
+    skip = req.body.itemsPerPage * (req.body.page - 1)
   let filter = {}
-  if ("filter" in req.body)
-     filter = req.body.filter
+  if ('filter' in req.body) filter = req.body.filter
 
   let limit = req.body.itemsPerPage || 10
   let orderby = {}
-  if ("sortBy" in req.body && "sortDesc" in req.body) {
-    for(let i=0; i<req.body.sortBy.length; i++) 
-      orderby[req.body.sortBy[i]] = req.body.sortDesc[i]? -1:1
-    if (req.body.sortBy.length === 0)
-      orderby = { timeTag: 1 }
-    }
-  else
-    orderby = { timeTag: 1 }
+  if ('sortBy' in req.body && 'sortDesc' in req.body) {
+    for (let i = 0; i < req.body.sortBy.length; i++)
+      orderby[req.body.sortBy[i]] = req.body.sortDesc[i] ? -1 : 1
+    if (req.body.sortBy.length === 0) orderby = { timeTag: 1 }
+  } else orderby = { timeTag: 1 }
 
-  let count = await UserAction.count(filter)  
-  console.log(count)
-  UserAction.find(filter).skip(skip).limit(limit).sort(orderby).exec(function (err, userActions) {
+  let count = await UserAction.countDocuments(filter)
+  UserAction.find(filter)
+    .skip(skip)
+    .limit(limit)
+    .sort(orderby)
+    .exec(function (err, userActions) {
+      if (err) {
+        console.log(err)
+        res.status(200).send({ error: err })
+        return
+      }
+      let ret = { userActions: userActions, countTotal: count }
+      res.status(200).send(ret)
+    })
+}
+
+exports.createTag = async (req, res) => {
+  // find biggest tag _id
+  let biggestTagId = 0
+  resBiggest = await Tag.find({ _id: { $gt: 0 } })
+    .select( "_id" )
+    .sort({ _id: -1 })
+    .limit(1)
+  if (resBiggest) 
+  if ("_id" in resBiggest[0])
+    biggestTagId = parseFloat(resBiggest[0]._id)
+  console.log(biggestTagId)
+ 
+  req.body._id = parseFloat(biggestTagId + 1)
+  req.body.tag = "new_tag_" + req.body._id
+  console.log(req.body)
+  const tag = new Tag(req.body)
+  tag.save(err => {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
-    let ret = { userActions: userActions, countTotal: count }
-    res.status(200).send(ret)
+    req.body = { _id: tag._id }
+    registerUserAction(req, 'createTag')
+    res.status(200).send(tag)
   })
 }
 
 exports.updateTag = async (req, res) => {
   registerUserAction(req, 'updateTag')
 
-  if ("_id" in req.body){
+  if ('_id' in req.body) {
     let _id = req.body._id
     delete req.body._id
     await Tag.findOneAndUpdate({ _id: _id }, req.body)
     res.status(200).send({ error: false })
-  }
-  else
-    res.status(200).send({ error: "No _id in update request." })
+  } else res.status(200).send({ error: 'No _id in update request.' })
 }
 
 exports.deleteTag = async (req, res) => {
   registerUserAction(req, 'deleteTag')
 
-  if ("_id" in req.body){
-  await Tag.findOneAndDelete({ _id: req.body._id })
-  res.status(200).send({ error: false })
-  }
-  else
-    res.status(200).send({ error: "No _id in delete request." })
+  if ('_id' in req.body) {
+    await Tag.findOneAndDelete({ _id: req.body._id })
+    res.status(200).send({ error: false })
+  } else res.status(200).send({ error: 'No _id in delete request.' })
 }
 
 exports.listTags = async (req, res) => {
   console.log('listTags')
 
   let skip = 0
-  if ("page" in req.body && "itemsPerPage" in req.body)
-    skip = req.body.itemsPerPage * (req.body.page-1)
+  if ('page' in req.body && 'itemsPerPage' in req.body)
+    skip = req.body.itemsPerPage * (req.body.page - 1)
   let filter = {}
-  if ("filter" in req.body)
-     filter = req.body.filter
+  if ('filter' in req.body) filter = req.body.filter
 
   let limit = req.body.itemsPerPage || 10
   let orderby = {}
-  if ("sortBy" in req.body && "sortDesc" in req.body) {
-    for(let i=0; i<req.body.sortBy.length; i++) 
-      orderby[req.body.sortBy[i]] = req.body.sortDesc[i]? -1:1
-    if (req.body.sortBy.length === 0)
-      orderby = { tag: 1 }
-    }
-  else
-    orderby = { tag: 1 }
+  if ('sortBy' in req.body && 'sortDesc' in req.body) {
+    for (let i = 0; i < req.body.sortBy.length; i++)
+      orderby[req.body.sortBy[i]] = req.body.sortDesc[i] ? -1 : 1
+    if (req.body.sortBy.length === 0) orderby = { tag: 1 }
+  } else orderby = { tag: 1 }
 
-  let count = await Tag.count(filter)  
-  Tag.find(filter).skip(skip).limit(limit).sort(orderby).exec(function (err, tags) {
-    if (err) {
-      res.status(200).send({ error: err })
-      return
-    }
-    let ret = { tags: tags, countTotal: count }
-    res.status(200).send(ret)
-  })
+  let count = await Tag.countDocuments(filter)
+  Tag.find(filter)
+    .skip(skip)
+    .limit(limit)
+    .sort(orderby)
+    .exec(function (err, tags) {
+      if (err) {
+        console.log(err)
+        res.status(200).send({ error: err })
+        return
+      }
+      let ret = { tags: tags, countTotal: count }
+      res.status(200).send(ret)
+    })
 }
 
 exports.updateProtocolConnection = async (req, res) => {
@@ -108,9 +134,12 @@ exports.updateProtocolConnection = async (req, res) => {
 
   // make default bind address for some protocols
   if (
-    ['IEC60870-5-104_SERVER', 'DNP3_SERVER', 'I104M'].includes(
-      req?.body?.protocolDriver
-    )
+    [
+      'IEC60870-5-104_SERVER',
+      'DNP3_SERVER',
+      'I104M',
+      'TELEGRAF-LISTENER'
+    ].includes(req?.body?.protocolDriver)
   ) {
     if (
       !('ipAddressLocalBind' in req.body) ||
@@ -127,6 +156,9 @@ exports.updateProtocolConnection = async (req, res) => {
         case 'I104M':
           req.body.ipAddressLocalBind = '0.0.0.0:8099'
           break
+        case 'TELEGRAF-LISTENER':
+          req.body.ipAddressLocalBind = '0.0.0.0:51920'
+          break
       }
     }
   }
@@ -138,7 +170,8 @@ exports.updateProtocolConnection = async (req, res) => {
       'DNP3',
       'DNP3_SERVER',
       'PLCTAG',
-      'I104M'
+      'I104M',
+      'TELEGRAF-LISTENER'
     ].includes(req?.body?.protocolDriver)
   ) {
     if (!('ipAddresses' in req.body)) {
@@ -146,19 +179,18 @@ exports.updateProtocolConnection = async (req, res) => {
     }
   }
 
-  if (
-    [
-      'OPC-UA'
-    ].includes(req?.body?.protocolDriver)
-  ) {
+  if (['OPC-UA', 'TELEGRAF-LISTENER'].includes(req?.body?.protocolDriver)) {
+    if (!('autoCreateTags' in req.body)) {
+      req.body.autoCreateTags = true
+    }
+  }
+
+  if (['OPC-UA'].includes(req?.body?.protocolDriver)) {
     if (!('endpointURLs' in req.body)) {
       req.body.endpointURLs = []
     }
     if (!('configFileName' in req.body)) {
-      req.body.configFileName = "../conf/Opc.Ua.DefaultClient.Config.xml"
-    }
-    if (!('autoCreateTags' in req.body)) {
-      req.body.autoCreateTags = true
+      req.body.configFileName = '../conf/Opc.Ua.DefaultClient.Config.xml'
     }
     if (!('autoCreateTagPublishingInterval' in req.body)) {
       req.body.autoCreateTagPublishingInterval = 2.5
@@ -175,7 +207,6 @@ exports.updateProtocolConnection = async (req, res) => {
     if (!('useSecurity' in req.body)) {
       req.body.useSecurity = false
     }
-    
   }
 
   if (
@@ -387,6 +418,7 @@ exports.createProtocolConnection = async (req, res) => {
   // find the biggest connection number and increment for the new connection
   await ProtocolConnection.find({}).exec(function (err, protocolConnections) {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
@@ -395,16 +427,17 @@ exports.createProtocolConnection = async (req, res) => {
       if (element.protocolConnectionNumber > connNumber)
         connNumber = element.protocolConnectionNumber
     })
-
-    registerUserAction(req, 'createProtocolConnection')
     const protocolConnection = new ProtocolConnection()
     protocolConnection.protocolConnectionNumber = connNumber + 1
     protocolConnection.DriverInstanceNumber = 1
     protocolConnection.save(err => {
       if (err) {
+        console.log(err)
         res.status(200).send({ error: err })
         return
       }
+      req.body = { _id: protocolConnection._id }
+      registerUserAction(req, 'createProtocolConnection')
       res.status(200).send({ error: false })
     })
   })
@@ -415,6 +448,7 @@ exports.listProtocolConnections = (req, res) => {
 
   ProtocolConnection.find({}).exec(function (err, protocolConnections) {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
@@ -434,6 +468,7 @@ exports.listNodes = (req, res) => {
 
   ProtocolDriverInstance.find({}).exec(function (err, driverInstances) {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
@@ -446,13 +481,15 @@ exports.listNodes = (req, res) => {
 }
 
 exports.createProtocolDriverInstance = async (req, res) => {
-  registerUserAction(req, 'createProtocolDriverInstance')
   const driverInstance = new ProtocolDriverInstance()
   driverInstance.save(err => {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
+    req.body = { _id: driverInstance._id }
+    registerUserAction(req, 'createProtocolDriverInstance')
     res.status(200).send({ error: false })
   })
 }
@@ -462,6 +499,7 @@ exports.listProtocolDriverInstances = (req, res) => {
 
   ProtocolDriverInstance.find({}).exec(function (err, driverInstances) {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
@@ -482,6 +520,7 @@ exports.listUsers = (req, res) => {
     .populate('roles')
     .exec(function (err, users) {
       if (err) {
+        console.log(err)
         res.status(200).send({ error: err })
         return
       }
@@ -497,6 +536,7 @@ exports.listRoles = (req, res) => {
 
   Role.find({}).exec(function (err, roles) {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
@@ -548,6 +588,7 @@ exports.listGroup1 = (req, res) => {
 
   Tag.find().distinct('group1', function (err, groups) {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
@@ -561,6 +602,7 @@ exports.listDisplays = (req, res) => {
   fs.readdir('../htdocs/svg', function (err, files) {
     //handling error
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
@@ -595,29 +637,31 @@ exports.updateUser = async (req, res) => {
 }
 
 exports.createRole = async (req, res) => {
-  registerUserAction(req, 'createRole')
-
   const role = new Role(req.body)
   role.save(err => {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
+    req.body._id = role._id
+    registerUserAction(req, 'createRole')
     res.status(200).send({ error: false })
   })
 }
 
 exports.createUser = async (req, res) => {
-  registerUserAction(req, 'createUser')
-
   if (req.body.password && req.body.password !== '')
     req.body.password = bcrypt.hashSync(req.body.password, 8)
   const user = new User(req.body)
   user.save(err => {
     if (err) {
+      console.log(err)
       res.status(200).send({ error: err })
       return
     }
+    req.body._id = user._id
+    registerUserAction(req, 'createUser')
     res.status(200).send({ error: false })
   })
 }
@@ -648,6 +692,7 @@ exports.signup = (req, res) => {
 
   user.save((err, user) => {
     if (err) {
+      console.log(err)
       res.status(500).send({ message: err })
       return
     }
@@ -659,6 +704,7 @@ exports.signup = (req, res) => {
         },
         (err, roles) => {
           if (err) {
+            console.log(err)
             res.status(500).send({ message: err })
             return
           }
@@ -666,6 +712,7 @@ exports.signup = (req, res) => {
           user.roles = roles.map(role => role._id)
           user.save(err => {
             if (err) {
+              console.log(err)
               res.status(500).send({ message: err })
               return
             }
@@ -677,6 +724,7 @@ exports.signup = (req, res) => {
     } else {
       Role.findOne({ name: 'user' }, (err, role) => {
         if (err) {
+          console.log(err)
           res.status(500).send({ message: err })
           return
         }
@@ -684,6 +732,7 @@ exports.signup = (req, res) => {
         user.roles = [role._id]
         user.save(err => {
           if (err) {
+            console.log(err)
             res.status(500).send({ message: err })
             return
           }
@@ -704,6 +753,7 @@ exports.signin = (req, res) => {
     .populate('roles', '-__v')
     .exec((err, user) => {
       if (err) {
+        console.log(err)
         res.status(200).send({ ok: false, message: err })
         return
       }

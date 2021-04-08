@@ -3,7 +3,7 @@
     <v-row class="pa-4" justify="space-between">
       <v-col>
         <v-treeview
-          style="max-height: 500px;min-width: 250px"
+          style="max-height: 500px; min-width: 250px"
           class="overflow-y-auto overflow-x-hidden"
           :active.sync="active"
           :items="items"
@@ -27,7 +27,7 @@
           @click="createProtocolConnection($event)"
         >
           <v-icon dark> mdi-plus </v-icon>
-          {{msg.connNewConnection}}
+          {{ $t("src\\components\\connections.newConnection") }}
         </v-btn>
       </v-col>
 
@@ -40,7 +40,7 @@
             class="title grey--text text--lighten-1 font-weight-light"
             style="align-self: center"
           >
-            {{msg.connSelectConnection}}
+            {{ $t("src\\components\\connections.selectConnection") }}
           </div>
           <v-card
             v-else
@@ -56,7 +56,7 @@
                 outlined
                 clearable
                 :input-value="active"
-                :label="msg.connConnectionName"
+                :label="$t('src\\components\\connections.connectionName')"
                 hide-details="auto"
                 v-model="selected.name"
                 @change="updateProtocolConnection"
@@ -77,17 +77,21 @@
                     <v-icon dark> mdi-minus </v-icon>
                   </v-btn>
                 </template>
-                <span>{{msg.connDeleteConnection}}</span>
+                <span>{{
+                  $t("src\\components\\connections.deleteConnection")
+                }}</span>
               </v-tooltip>
 
               <v-dialog v-model="dialogDelConn" max-width="400">
                 <v-card>
                   <v-card-title class="headline">
-                    {{msg.connDeleteConnection}}
+                    {{ $t("src\\components\\connections.deleteConnection") }}
                   </v-card-title>
 
                   <v-card-text>
-                    {{msg.connDeleteConnectionConfirm}}
+                    {{
+                      $t("src\\components\\connections.deleteConnectionConfirm")
+                    }}
                   </v-card-text>
 
                   <v-card-actions>
@@ -98,7 +102,11 @@
                       text
                       @click="dialogDelConn = false"
                     >
-                      {{msg.connDeleteConnectionCancel}}
+                      {{
+                        $t(
+                          "src\\components\\connections.deleteConnectionCancel"
+                        )
+                      }}
                     </v-btn>
 
                     <v-btn
@@ -109,7 +117,11 @@
                         deleteProtocolConnection($event);
                       "
                     >
-                      {{msg.connDeleteConnectionExecute}}
+                      {{
+                        $t(
+                          "src\\components\\connections.deleteConnectionExecute"
+                        )
+                      }}
                     </v-btn>
                   </v-card-actions>
                 </v-card>
@@ -123,7 +135,7 @@
               min="1"
               clearable
               :input-value="active"
-              :label="msg.connConnectionNumber"
+              :label="$t('src\\components\\connections.connectionNumber')"
               hide-details="auto"
               v-model="selected.protocolConnectionNumber"
               @change="updateProtocolConnection"
@@ -135,7 +147,7 @@
               outlined
               clearable
               :input-value="active"
-              :label="msg.connDescription"
+              :label="$t('src\\components\\connections.description')"
               hide-details="auto"
               v-model="selected.description"
               @change="updateProtocolConnection"
@@ -145,16 +157,23 @@
               v-model="selected.enabled"
               inset
               color="primary"
-              :label="`${msg.connEnabled}${selected.enabled?msg.connEnabledTrue:msg.connEnabledFalse}`"
+              :label="`${$t('src\\components\\connections.enabled')}${
+                selected.enabled ? $t('src\\components\\connections.enabledTrue') : $t('src\\components\\connections.enabledFalse')
+              }`"
               @change="updateProtocolConnection"
               class="mb-0"
             ></v-switch>
 
             <v-switch
+              v-if="!['TELEGRAF-LISTENER'].includes(selected.protocolDriver)"
               v-model="selected.commandsEnabled"
               inset
               color="primary"
-              :label="`${msg.connCmdEnabled}${selected.commandsEnabled?msg.connCmdEnabledTrue:msg.connCmdEnabledFalse}`"
+              :label="`${$t('src\\components\\connections.cmdEnabled')}${
+                selected.commandsEnabled
+                  ? $t('src\\components\\connections.cmdEnabledTrue')
+                  : $t('src\\components\\connections.cmdEnabledFalse')
+              }`"
               @change="updateProtocolConnection"
               class="mt-0"
             ></v-switch>
@@ -162,7 +181,7 @@
             <v-select
               prepend-inner-icon="mdi-cogs"
               :items="driverNameItems"
-              :label="msg.connProtocolDriver"
+              :label="$t('src\\components\\connections.protocolDriver')"
               v-model="selected.protocolDriver"
               outlined
               @change="updateProtocolConnection"
@@ -176,7 +195,7 @@
               min="1"
               clearable
               :input-value="active"
-              :label="msg.connInstanceNumber"
+              :label="$t('src\\components\\connections.instanceNumber')"
               hide-details="auto"
               v-model="selected.protocolDriverInstanceNumber"
               @change="updateProtocolConnection"
@@ -184,10 +203,15 @@
 
             <v-card class="mx-auto" tile>
               <v-list flat dense shaped subheader>
-                <v-subheader>{{msg.connProtocolConnectionParameters}}</v-subheader>
+                <v-subheader>
+                  {{
+                    $t(
+                      "src\\components\\connections.protocolConnectionParameters"
+                    )
+                  }}
+                </v-subheader>
 
                 <v-list-item-group multiple active-class="">
-
                   <v-list-item
                     v-if="
                       [
@@ -209,19 +233,27 @@
                           type="number"
                           min="0"
                           :input-value="active"
-                          :label="msg.connLocalLinkAddress"
+                          :label="$t('src\\components\\connections.localLinkAddress')"
                           hide-details="auto"
                           v-model="selected.localLinkAddress"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connLocalLinkAddressTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connLocalLinkAddressHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.localLinkAddressTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.localLinkAddressHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -247,30 +279,33 @@
                           type="number"
                           min="0"
                           :input-value="active"
-                          :label="msg.connRemoteLinkAddress"
+                          :label="$t('src\\components\\connections.remoteLinkAddress')"
                           hide-details="auto"
                           v-model="selected.remoteLinkAddress"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connRemoteLinkAddressTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connRemoteLinkAddressHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.remoteLinkAddressTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.remoteLinkAddressHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
-
                   <v-list-item
-                    v-if="
-                      [
-                        'OPC-UA'
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['OPC-UA'].includes(selected.protocolDriver)"
                   >
                     <v-autocomplete
                       v-model="selected.endpointURLs"
@@ -278,7 +313,7 @@
                       chips
                       small-chips
                       deletable-chips
-                      :label="msg.connRemoteEndpointsUrls"
+                      :label="$t('src\\components\\connections.remoteEndpointsUrls')"
                       multiple
                       @change="updateProtocolConnection"
                     ></v-autocomplete>
@@ -298,21 +333,27 @@
                           <v-icon dark> mdi-plus </v-icon>
                         </v-btn>
                       </template>
-                      <span>{{msg.connRemoteEndpointsAddNew}}</span>
+                      <span>{{
+                        $t("src\\components\\connections.remoteEndpointsAddNew")
+                      }}</span>
                     </v-tooltip>
                     <v-dialog
                       v-model="dialogAddURL"
-                      max-width="400"
+                      max-width="450"
                       class="pa-8"
                     >
                       <v-card>
                         <v-card-title class="headline">
-                          {{msg.connRemoteEndpointsAddNew}}
+                          {{
+                            $t(
+                              "src\\components\\connections.remoteEndpointsAddNew"
+                            )
+                          }}
                         </v-card-title>
 
                         <v-card-title class="headline">
                           <v-text-field
-                            :label="msg.connRemoteEndpointsNewUrl"
+                            :label="$t('src\\components\\connections.remoteEndpointsNewUrl')"
                             v-model="newURL"
                             :rules="[rules.required, rules.opcUrl]"
                           ></v-text-field>
@@ -326,7 +367,11 @@
                             text
                             @click="dialogAddURL = false"
                           >
-                            {{msg.connRemoteEndpointsNewUrlCancel}}
+                            {{
+                              $t(
+                                "src\\components\\connections.remoteEndpointsNewUrlCancel"
+                              )
+                            }}
                           </v-btn>
 
                           <v-btn
@@ -337,25 +382,26 @@
                               addNewURL($event);
                             "
                           >
-                            {{msg.connRemoteEndpointsNewUrlExecute}}
+                            {{
+                              $t(
+                                "src\\components\\connections.remoteEndpointsNewUrlExecute"
+                              )
+                            }}
                           </v-btn>
                         </v-card-actions>
                       </v-card>
                     </v-dialog>
-                  </v-list-item>                  
+                  </v-list-item>
 
-                  <v-list-item                    
-                    v-if="
-                      [
-                        'OPC-UA'
-                      ].includes(selected.protocolDriver) 
-                    ">
+                  <v-list-item
+                    v-if="['OPC-UA'].includes(selected.protocolDriver)"
+                  >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="string"
                           :input-value="active"
-                          :label="msg.connConfigFileName"
+                          :label="$t('src\\components\\connections.configFileName')"
                           hide-details="auto"
                           v-model="selected.configFileName"
                           @change="updateProtocolConnection"
@@ -363,59 +409,76 @@
                       </v-list-item-action>
 
                       <v-list-item-content>
-                        <v-list-item-title>{{msg.connConfigFileNameTitle}}</v-list-item-title>
-                        <v-list-item-subtitle
-                          >{{msg.connConfigFileNameHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.configFileNameTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.configFileNameHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
-                  <v-list-item class="ma-0"
-                    v-if="
-                      [
-                        'OPC-UA'
-                      ].includes(selected.protocolDriver)
-                    "
+                  <v-list-item
+                    class="ma-0"
+                    v-if="['OPC-UA'].includes(selected.protocolDriver)"
                   >
-                      <v-switch class="ma-0"
-                        v-model="selected.useSecurity"
-                        inset
-                        color="primary"
-                        :label="`${msg.connUseSecurity}${selected.useSecurity?msg.connUseSecurityTrue:msg.connUseSecurityFalse}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      class="ma-0"
+                      v-model="selected.useSecurity"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.useSecurity')}${
+                        selected.useSecurity
+                          ? $t('src\\components\\connections.useSecurityTrue')
+                          : $t('src\\components\\connections.useSecurityFalse')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
-                  <v-list-item class="ma-0"
+                  <v-list-item
+                    class="ma-0"
                     v-if="
-                      [
-                        'OPC-UA'
-                      ].includes(selected.protocolDriver)
+                      ['OPC-UA', 'TELEGRAF-LISTENER'].includes(
+                        selected.protocolDriver
+                      )
                     "
                   >
-                      <v-switch class="ma-0"
-                        v-model="selected.autoCreateTags"
-                        inset
-                        color="primary"
-                        :label="`${msg.connAutoCreateTags}${selected.autoCreateTags?msg.connAutoCreateTagsTrue:msg.connAutoCreateTagsFalse}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      class="ma-0"
+                      v-model="selected.autoCreateTags"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.autoCreateTags')}${
+                        selected.autoCreateTags
+                          ? $t('src\\components\\connections.autoCreateTagsTrue')
+                          : $t('src\\components\\connections.autoCreateTagsFalse')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
-                    <v-list-item                    
+                  <v-list-item
                     v-if="
-                      [
-                        'OPC-UA'
-                      ].includes(selected.protocolDriver) 
-                      && selected.autoCreateTags
-                    ">
+                      ['OPC-UA'].includes(selected.protocolDriver) &&
+                      selected.autoCreateTags
+                    "
+                  >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
                           :input-value="active"
-                          :label="msg.connPublishingInterval"
+                          :label="$t('src\\components\\connections.publishingInterval')"
                           hide-details="auto"
                           v-model="selected.autoCreateTagPublishingInterval"
                           @change="updateProtocolConnection"
@@ -423,90 +486,125 @@
                       </v-list-item-action>
 
                       <v-list-item-content>
-                        <v-list-item-title>{{msg.connPublishingIntervalTitle}}</v-list-item-title>
-                        <v-list-item-subtitle
-                          >{{msg.connPublishingIntervalHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.publishingIntervalTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.publishingIntervalHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
-                    </v-list-item>
+                  </v-list-item>
 
-                    <v-list-item                    
+                  <v-list-item
                     v-if="
-                      [
-                        'OPC-UA'
-                      ].includes(selected.protocolDriver)
-                      && selected.autoCreateTags
-                    ">
+                      ['OPC-UA'].includes(selected.protocolDriver) &&
+                      selected.autoCreateTags
+                    "
+                  >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
                           :input-value="active"
-                          :label="msg.connSamplingInterval"
+                          :label="$t('src\\components\\connections.samplingInterval')"
                           hide-details="auto"
                           v-model="selected.autoCreateTagSamplingInterval"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title>{{msg.connSamplingIntervalTitle}}</v-list-item-title>
-                        <v-list-item-subtitle
-                          >{{msg.connSamplingIntervalHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.samplingIntervalTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.samplingIntervalHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
-                    <v-list-item                    
+                  <v-list-item
                     v-if="
-                      [
-                        'OPC-UA'
-                      ].includes(selected.protocolDriver)
-                      && selected.autoCreateTags
-                    ">
+                      ['OPC-UA'].includes(selected.protocolDriver) &&
+                      selected.autoCreateTags
+                    "
+                  >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
                           :input-value="active"
-                          :label="msg.connServerQueueSize"
+                          :label="$t('src\\components\\connections.serverQueueSize')"
                           hide-details="auto"
                           v-model="selected.autoCreateTagQueueSize"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title>{{msg.connServerQueueSizeTitle}}</v-list-item-title>
-                        <v-list-item-subtitle
-                          >{{msg.connServerQueueSizeHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.serverQueueSizeTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.serverQueueSizeHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
-                    <v-list-item                    
-                    v-if="
-                      [
-                        'OPC-UA'
-                      ].includes(selected.protocolDriver)
-                    ">
+                  <v-list-item
+                    v-if="['OPC-UA'].includes(selected.protocolDriver)"
+                  >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
                           :input-value="active"
-                          :label="msg.connTimeoutKeepalive"
+                          :label="$t('src\\components\\connections.timeoutKeepalive')"
                           hide-details="auto"
                           v-model="selected.timeoutMs"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title>{{msg.connTimeoutKeepaliveTitle}}</v-list-item-title>
-                        <v-list-item-subtitle
-                          >{{msg.connTimeoutKeepaliveHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.timeoutKeepaliveTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.timeoutKeepaliveHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -527,19 +625,23 @@
                           type="number"
                           min="0"
                           :input-value="active"
-                          :label="msg.connGiInterval"
+                          :label="$t('src\\components\\connections.giInterval')"
                           hide-details="auto"
                           v-model="selected.giInterval"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                        >{{msg.connGiIntervalTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                        >{{msg.connGiIntervalHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t("src\\components\\connections.giIntervalTitle")
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t("src\\components\\connections.giIntervalHint")
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -557,19 +659,27 @@
                           type="number"
                           min="0"
                           :input-value="active"
-                          :label="msg.connTestCmdInterval"
+                          :label="$t('src\\components\\connections.testCmdInterval')"
                           hide-details="auto"
                           v-model="selected.testCommandInterval"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connTestCmdIntervalTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connTestCmdIntervalHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.testCmdIntervalTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.testCmdIntervalHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -587,19 +697,27 @@
                           type="number"
                           min="0"
                           :input-value="active"
-                          :label="msg.connTimeSyncInterval"
+                          :label="$t('src\\components\\connections.timeSyncInterval')"
                           hide-details="auto"
                           v-model="selected.timeSyncInterval"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connTimeSyncIntervalTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connTimeSyncIntervalHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{
+                            $t(
+                              "src\\components\\connections.timeSyncIntervalTitle"
+                            )
+                          }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{
+                            $t(
+                              "src\\components\\connections.timeSyncIntervalHint"
+                            )
+                          }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -617,19 +735,19 @@
                           type="number"
                           min="1"
                           :input-value="active"
-                          :label="msg.connK"
+                          :label="$t('src\\components\\connections.k')"
                           hide-details="auto"
                           v-model="selected.k"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connKTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connKHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{ $t("src\\components\\connections.kTitle") }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>
+                          {{ $t("src\\components\\connections.kHint") }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -647,19 +765,19 @@
                           type="number"
                           min="1"
                           :input-value="active"
-                          :label="msg.connW"
+                          :label="$t('src\\components\\connections.w')"
                           hide-details="auto"
                           v-model="selected.w"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connWTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connWHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{ $t("src\\components\\connections.wTitle") }}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>{{
+                          $t("src\\components\\connections.wHint")
+                        }}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -677,19 +795,21 @@
                           type="number"
                           min="1"
                           :input-value="active"
-                          :label="msg.connT0"
+                          :label="$t('src\\components\\connections.t0')"
                           hide-details="auto"
                           v-model="selected.t0"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connT0Title}}</v-list-item-title
+                        <v-list-item-title>
+                          {{
+                            $t("src\\components\\connections.t0Title")
+                          }}</v-list-item-title
                         >
-                        <v-list-item-subtitle
-                          >{{msg.connT0Hint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-subtitle>{{
+                          $t("src\\components\\connections.t0Hint")
+                        }}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -707,19 +827,19 @@
                           type="number"
                           min="1"
                           :input-value="active"
-                          :label="msg.connT1"
+                          :label="$t('src\\components\\connections.t1')"
                           hide-details="auto"
                           v-model="selected.t1"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connT1Title}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connT1Hint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{
+                          $t("src\\components\\connections.t1Title")
+                        }}</v-list-item-title>
+                        <v-list-item-subtitle>{{
+                          $t("src\\components\\connections.t1Hint")
+                        }}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -737,19 +857,19 @@
                           type="number"
                           min="1"
                           :input-value="active"
-                          :label="msg.connT2"
+                          :label="$t('src\\components\\connections.t2')"
                           hide-details="auto"
                           v-model="selected.t2"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connT2Title}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connT2Hint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{
+                          $t("src\\components\\connections.t2Title")
+                        }}</v-list-item-title>
+                        <v-list-item-subtitle>{{
+                          $t("src\\components\\connections.t2Hint")
+                        }}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -767,19 +887,19 @@
                           type="number"
                           min="1"
                           :input-value="active"
-                          :label="msg.connT3"
+                          :label="$t('src\\components\\connections.t3')"
                           hide-details="auto"
                           v-model="selected.t3"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connT3Title}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connT3Hint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{
+                          $t("src\\components\\connections.t3Title")
+                        }}</v-list-item-title>
+                        <v-list-item-subtitle>{{
+                          $t("src\\components\\connections.t3Hint")
+                        }}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -796,23 +916,24 @@
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
-                      <v-select
-                        :items="itemsSizeOfCOT"
-                        :input-value="active"
-                        hide-details="auto"
-                        v-model="selected.sizeOfCOT"
-                        :label="msg.connSizeOfCot"
-                      ></v-select>
+                        <v-select
+                          :items="itemsSizeOfCOT"
+                          :input-value="active"
+                          hide-details="auto"
+                          v-model="selected.sizeOfCOT"
+                          :label="$t('src\\components\\connections.sizeOfCot')"
+                        ></v-select>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connSizeOfCotTitle}}</v-list-item-title
+                        <v-list-item-title>
+                          {{
+                            $t("src\\components\\connections.sizeOfCotTitle")
+                          }}</v-list-item-title
                         >
-                        <v-list-item-subtitle
-                          >{{msg.connSizeOfCotHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-subtitle>
+                          {{ $t("src\\components\\connections.sizeOfCotHint") }}
+                        </v-list-item-subtitle>
                       </v-list-item-content>
-
                     </template>
                   </v-list-item>
 
@@ -828,72 +949,74 @@
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
-                      <v-select
-                        :items="itemsSizeOfCA"
-                        :input-value="active"
-                        hide-details="auto"
-                        v-model="selected.sizeOfCA"
-                        :label="msg.connSizeOfCa"
-                      ></v-select>
-                      </v-list-item-action>
-                                            <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connSizeOfCaTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connSizeOfCaHint}}</v-list-item-subtitle
-                        >
-                      </v-list-item-content>
-
-                    </template>
-                  </v-list-item>
-
-                  <v-list-item
-                    v-if="
-                      [
-                        'IEC60870-5-101',
-                        'IEC60870-5-104',
-                        'IEC60870-5-101_SERVER',
-                        'IEC60870-5-104_SERVER',
-                      ].includes(selected.protocolDriver)
-                    "
-                  >
-                    <template v-slot:default="{ active }">
-                      <v-list-item-action>
-                      <v-select
-                        :items="itemsSizeOfIOA"
-                        :input-value="active"
-                        hide-details="auto"
-                        v-model="selected.sizeOfIOA"
-                        label="Size of IOA"
-                      ></v-select>
+                        <v-select
+                          :items="itemsSizeOfCA"
+                          :input-value="active"
+                          hide-details="auto"
+                          v-model="selected.sizeOfCA"
+                          :label="$t('src\\components\\connections.sizeOfCa')"
+                        ></v-select>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connSizeOfIoaTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connSizeOfIoaHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{
+                          $t("src\\components\\connections.sizeOfCaTitle")
+                        }}</v-list-item-title>
+                        <v-list-item-subtitle>{{
+                          $t("src\\components\\connections.sizeOfCaHint")
+                        }}</v-list-item-subtitle>
                       </v-list-item-content>
-
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
                       [
-                        'IEC60870-5-104_SERVER'
+                        'IEC60870-5-101',
+                        'IEC60870-5-104',
+                        'IEC60870-5-101_SERVER',
+                        'IEC60870-5-104_SERVER',
                       ].includes(selected.protocolDriver)
                     "
                   >
-                      <v-switch
-                        v-model="selected.serverModeMultiActive"
-                        inset
-                        color="primary"
-                        :label="`${msg.connModeMultiActive}${selected.serverModeMultiActive?msg.connModeMultiActiveTrue:msg.connModeMultiActiveFalse}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <template v-slot:default="{ active }">
+                      <v-list-item-action>
+                        <v-select
+                          :items="itemsSizeOfIOA"
+                          :input-value="active"
+                          hide-details="auto"
+                          v-model="selected.sizeOfIOA"
+                          label="Size of IOA"
+                        ></v-select>
+                      </v-list-item-action>
+                      <v-list-item-content>
+                        <v-list-item-title>{{
+                          $t("src\\components\\connections.sizeOfIoaTitle")
+                        }}</v-list-item-title>
+                        <v-list-item-subtitle>{{
+                          $t("src\\components\\connections.sizeOfIoaHint")
+                        }}</v-list-item-subtitle>
+                      </v-list-item-content>
+                    </template>
+                  </v-list-item>
+
+                  <v-list-item
+                    v-if="
+                      ['IEC60870-5-104_SERVER'].includes(
+                        selected.protocolDriver
+                      )
+                    "
+                  >
+                    <v-switch
+                      v-model="selected.serverModeMultiActive"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.modeMultiActive')}${
+                        selected.serverModeMultiActive
+                          ? $t('src\\components\\connections.modeMultiActiveTrue')
+                          : $t('src\\components\\connections.modeMultiActiveFalse')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
                   <v-list-item
@@ -909,28 +1032,25 @@
                           type="number"
                           min="1"
                           :input-value="active"
-                          :label="msg.connMaxClientConnections"
+                          :label="$t('src\\components\\connections.maxClientConnections')"
                           hide-details="auto"
                           v-model="selected.maxClientConnections"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connMaxClientConnectionsTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connMaxClientConnectionsHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.maxClientConnectionsTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.maxClientConnectionsHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-104_SERVER','IEC60870-5-101_SERVER'].includes(
-                        selected.protocolDriver
-                      )
+                      [
+                        'IEC60870-5-104_SERVER',
+                        'IEC60870-5-101_SERVER',
+                      ].includes(selected.protocolDriver)
                     "
                   >
                     <template v-slot:default="{ active }">
@@ -939,195 +1059,147 @@
                           type="number"
                           min="1"
                           :input-value="active"
-                          :label="msg.connMaxQueueSize"
+                          :label="$t('src\\components\\connections.maxQueueSize')"
                           hide-details="auto"
                           v-model="selected.maxQueueSize"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connMaxQueueSizeTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connMaxQueueSizeHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.maxQueueSizeTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.maxQueueSizeHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['DNP3'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=0
+                          min="0"
                           :input-value="active"
-                          :label="msg.connClass0Scan"
+                          :label="$t('src\\components\\connections.class0Scan')"
                           hide-details="auto"
                           v-model="selected.class0ScanInterval"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connClass0ScanTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connClass0ScanHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.class0ScanTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.class0ScanHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['DNP3'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=0
+                          min="0"
                           :input-value="active"
-                          :label="msg.connClass1Scan"
+                          :label="$t('src\\components\\connections.class1Scan')"
                           hide-details="auto"
                           v-model="selected.class1ScanInterval"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connClass1ScanTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connClass1ScanHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.class1ScanTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.class1ScanHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['DNP3'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=0
+                          min="0"
                           :input-value="active"
-                          :label="msg.connClass2Scan"
+                          :label="$t('src\\components\\connections.class2Scan')"
                           hide-details="auto"
                           v-model="selected.class2ScanInterval"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connClass2ScanTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connClass2ScanHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.class2ScanTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.class2ScanHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['DNP3'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=0
+                          min="0"
                           :input-value="active"
-                          :label="msg.connClass3Scan"
+                          :label="$t('src\\components\\connections.class3Scan')"
                           hide-details="auto"
                           v-model="selected.class3ScanInterval"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connClass3ScanTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connClass3ScanHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.class3ScanTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.class3ScanHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['DNP3'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=0
+                          min="0"
                           :input-value="active"
-                          :label="msg.connTimeSyncMode"
+                          :label="$t('src\\components\\connections.timeSyncMode')"
                           hide-details="auto"
                           v-model="selected.timeSyncMode"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connTimeSyncModeTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connTimeSyncModeHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.timeSyncModeTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.timeSyncModeHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      [
-                        'DNP3'
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
-                      <v-switch
-                        v-model="selected.enableUnsolicited"
-                        inset
-                        color="primary"
-                        :label="`${msg.connEnableUnsolicited}${selected.enableUnsolicited?msg.connEnableUnsolicitedTrue:msg.connEnableUnsolicitedFalse}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      v-model="selected.enableUnsolicited"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.enableUnsolicited')}${
+                        selected.enableUnsolicited
+                          ? $t('src\\components\\connections.enableUnsolicitedTrue')
+                          : $t('src\\components\\connections.enableUnsolicitedFalse')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      [
-                        'DNP3',
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <v-autocomplete
                       v-model="selected.rangeScansStr"
@@ -1135,7 +1207,7 @@
                       chips
                       small-chips
                       deletable-chips
-                      :label="msg.connRangeScans"
+                      :label="$t('src\\components\\connections.rangeScans')"
                       multiple
                       @change="updateProtocolConnection"
                     ></v-autocomplete>
@@ -1155,7 +1227,7 @@
                           <v-icon dark> mdi-plus </v-icon>
                         </v-btn>
                       </template>
-                      <span>{{msg.connRangeScanAddNew}}</span>
+                      <span>{{$t("src\\components\\connections.rangeScanAddNew")}}</span>
                     </v-tooltip>
                     <v-dialog
                       v-model="dialogAddRangeScan"
@@ -1164,45 +1236,44 @@
                     >
                       <v-card>
                         <v-card-title class="headline">
-                          {{msg.connRangeScanAddNew}}
+                          {{$t("src\\components\\connections.rangeScanAddNew")}}
                         </v-card-title>
 
                         <v-card-title class="headline">
                           <v-text-field
-                            :label="msg.connRangeScanGroup"
+                            :label="$t('src\\components\\connections.rangeScanGroup')"
                             type="number"
-                            min=1
+                            min="1"
                             v-model="newRangeScan.group"
                           ></v-text-field>
 
                           <v-text-field
-                            :label="msg.connRangeScanVariation"
+                            :label="$t('src\\components\\connections.rangeScanVariation')"
                             type="number"
-                            min=0
+                            min="0"
                             v-model="newRangeScan.variation"
                           ></v-text-field>
 
                           <v-text-field
-                            :label="msg.connRangeScanStart"
+                            :label="$t('src\\components\\connections.rangeScanStart')"
                             type="number"
-                            min=0
+                            min="0"
                             v-model="newRangeScan.startAddress"
                           ></v-text-field>
 
                           <v-text-field
-                            :label="msg.connRangeScanStop"
+                            :label="$t('src\\components\\connections.rangeScanStop')"
                             type="number"
-                            min=0
+                            min="0"
                             v-model="newRangeScan.stopAddress"
                           ></v-text-field>
 
                           <v-text-field
-                            :label="msg.connRangeScanPeriod"
+                            :label="$t('src\\components\\connections.rangeScanPeriod')"
                             type="number"
-                            min=1
+                            min="1"
                             v-model="newRangeScan.period"
                           ></v-text-field>
-
                         </v-card-title>
 
                         <v-card-actions>
@@ -1213,7 +1284,7 @@
                             text
                             @click="dialogAddRangeScan = false"
                           >
-                            {{msg.connRangeScanAddCancel}}
+                          {{$t("src\\components\\connections.rangeScanAddCancel")}}
                           </v-btn>
 
                           <v-btn
@@ -1224,7 +1295,7 @@
                               addNewRangeScan($event);
                             "
                           >
-                            {{msg.connRangeScanAddExecute}}
+                          {{$t("src\\components\\connections.rangeScanAddExecute")}}
                           </v-btn>
                         </v-card-actions>
                       </v-card>
@@ -1233,7 +1304,7 @@
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-101','IEC60870-5-101_SERVER'].includes(
+                      ['IEC60870-5-101', 'IEC60870-5-101_SERVER'].includes(
                         selected.protocolDriver
                       )
                     "
@@ -1242,28 +1313,24 @@
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=1
+                          min="1"
                           :input-value="active"
-                          :label="msg.connTimeoutAck"
+                          :label="$t('src\\components\\connections.timeoutAck')"
                           hide-details="auto"
                           v-model="selected.timeoutForACK"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connTimeoutAckTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connTimeoutAckHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.timeoutAckTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.timeoutAckHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-101','IEC60870-5-101_SERVER'].includes(
+                      ['IEC60870-5-101', 'IEC60870-5-101_SERVER'].includes(
                         selected.protocolDriver
                       )
                     "
@@ -1272,89 +1339,86 @@
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=1
+                          min="1"
                           :input-value="active"
-                          :label="msg.connTimeoutRepeat"
+                          :label="$t('src\\components\\connections.timeoutRepeat')"
                           hide-details="auto"
                           v-model="selected.timeoutRepeat"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connTimeoutRepeatTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connTimeoutRepeatHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.timeoutRepeatTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.timeoutRepeatHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-101','IEC60870-5-101_SERVER'].includes(
+                      ['IEC60870-5-101', 'IEC60870-5-101_SERVER'].includes(
                         selected.protocolDriver
                       )
                     "
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
-                      <v-select
-                        :items="sizeOfLinkAddressItems"
-                        :input-value="active"
-                        hide-details="auto"
-                        v-model="selected.sizeOfLinkAddress "
-                        :label="msg.connSizeOfLinkAddress"
-                      ></v-select>
+                        <v-select
+                          :items="sizeOfLinkAddressItems"
+                          :input-value="active"
+                          hide-details="auto"
+                          v-model="selected.sizeOfLinkAddress"
+                          :label="$t('src\\components\\connections.sizeOfLinkAddress')"
+                        ></v-select>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connSizeOfLinkAddressTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connSizeOfLinkAddressHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.sizeOfLinkAddressTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.sizeOfLinkAddressHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      [
-                        'IEC60870-5-101',
-                        'IEC60870-5-101_SERVER'
-                      ].includes(selected.protocolDriver)
+                      ['IEC60870-5-101', 'IEC60870-5-101_SERVER'].includes(
+                        selected.protocolDriver
+                      )
                     "
                   >
-                      <v-switch
-                        v-model="selected.useSingleCharACK "
-                        inset
-                        color="primary"
-                        :label="`${msg.connSingleCharAck}${selected.useSingleCharACK?msg.connSingleCharAckTrue:msg.connSingleCharAckFalse}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      v-model="selected.useSingleCharACK"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.singleCharAck')}${
+                        selected.useSingleCharACK
+                          ? $t('src\\components\\connections.singleCharAckTrue')
+                          : $t('src\\components\\connections.singleCharAckFalse')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
-
                 </v-list-item-group>
               </v-list>
             </v-card>
 
-            <v-card class="mt-6" tile
-                    v-if="
-                      [
-                        'IEC60870-5-104',
-                        'IEC60870-5-104_SERVER',
-                        'DNP3',
-                        'DNP3_SERVER',
-                        'I104M',
-                        'MODBUS',
-                        'PLCTAG'
-                      ].includes(selected.protocolDriver)
-                    "
+            <v-card
+              class="mt-6"
+              tile
+              v-if="
+                [
+                  'IEC60870-5-104',
+                  'IEC60870-5-104_SERVER',
+                  'DNP3',
+                  'DNP3_SERVER',
+                  'I104M',
+                  'MODBUS',
+                  'PLCTAG',
+                  'TELEGRAF-LISTENER',
+                ].includes(selected.protocolDriver)
+              "
             >
               <v-list flat dense shaped subheader>
-                <v-subheader>{{msg.connTcpParameters}}</v-subheader>
+                <v-subheader>{{$t("src\\components\\connections.tcpParameters")}}</v-subheader>
                 <v-list-item-group>
                   <v-list-item
                     v-if="
@@ -1363,6 +1427,7 @@
                         'DNP3',
                         'DNP3_SERVER',
                         'I104M',
+                        'TELEGRAF-LISTENER',
                       ].includes(selected.protocolDriver)
                     "
                   >
@@ -1372,7 +1437,7 @@
                           type="text"
                           :rules="[rules.required, rules.ipPort]"
                           :input-value="active"
-                          :label="msg.connBindIpPort"
+                          :label="$t('src\\components\\connections.bindIpPort')"
                           hide-details="auto"
                           v-model="selected.ipAddressLocalBind"
                           @change="updateProtocolConnection"
@@ -1380,12 +1445,9 @@
                       </v-list-item-action>
 
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connBindIpPortTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connBindIpPortHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                        {{$t("src\\components\\connections.bindIpPortTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.bindIpPortHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
@@ -1400,6 +1462,7 @@
                         'I104M',
                         'PLCTAG',
                         'MODBUS',
+                        'TELEGRAF-LISTENER',
                       ].includes(selected.protocolDriver)
                     "
                   >
@@ -1409,7 +1472,7 @@
                       chips
                       small-chips
                       deletable-chips
-                      :label="msg.connRemoteIpAddresses"
+                      :label="$t('src\\components\\connections.remoteIpAddresses')"
                       multiple
                       @change="updateProtocolConnection"
                     ></v-autocomplete>
@@ -1429,16 +1492,16 @@
                           <v-icon dark> mdi-plus </v-icon>
                         </v-btn>
                       </template>
-                      <span>{{msg.connRemoteIpAddressAdd}}</span>
+                      <span>{{$t("src\\components\\connections.remoteIpAddressAdd")}}</span>
                     </v-tooltip>
                     <v-dialog
                       v-model="dialogAddIP"
-                      max-width="290"
+                      max-width="400"
                       class="pa-8"
                     >
                       <v-card>
                         <v-card-title class="headline">
-                          {{msg.connRemoteIpAddressAdd}}
+                          {{$t("src\\components\\connections.remoteIpAddressAdd")}}
                         </v-card-title>
 
                         <v-card-title class="headline">
@@ -1457,7 +1520,7 @@
                             text
                             @click="dialogAddIP = false"
                           >
-                            {{msg.connRemoteIpAddressAddCancel}}
+                          {{$t("src\\components\\connections.remoteIpAddressAddCancel")}}
                           </v-btn>
 
                           <v-btn
@@ -1468,31 +1531,32 @@
                               addNewIP($event);
                             "
                           >
-                            {{msg.connRemoteIpAddressAddExecute}}
+                          {{$t("src\\components\\connections.remoteIpAddressAddExecute")}}
                           </v-btn>
                         </v-card-actions>
                       </v-card>
                     </v-dialog>
                   </v-list-item>
-
                 </v-list-item-group>
               </v-list>
             </v-card>
 
-            <v-card class="mt-6" tile
-                                v-if="
-                      [
-                        'IEC60870-5-104',
-                        'DNP3',
-                      ].includes(selected.protocolDriver)
-                    "
-                    >
+            <v-card
+              class="mt-6"
+              tile
+              v-if="
+                ['IEC60870-5-104', 'DNP3'].includes(selected.protocolDriver)
+              "
+            >
               <v-list flat dense shaped subheader>
-                <v-subheader>TLS Parameters (leave blank for unencrypted connections)</v-subheader>
+                <v-subheader
+                  >TLS Parameters (leave blank for unencrypted
+                  connections)</v-subheader
+                >
                 <v-list-item-group>
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-104','DNP3'].includes(
+                      ['IEC60870-5-104', 'DNP3'].includes(
                         selected.protocolDriver
                       )
                     "
@@ -1502,26 +1566,23 @@
                         <v-text-field
                           type="text"
                           :input-value="active"
-                          :label="msg.connLocalCertificateFile"
+                          :label="$t('src\\components\\connections.localCertificateFile')"
                           hide-details="auto"
                           v-model="selected.localCertFilePath"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connLocalCertificateFileTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connLocalCertificateFileHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{$t("src\\components\\connections.localCertificateFileTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.localCertificateFileHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-104','DNP3'].includes(
+                      ['IEC60870-5-104', 'DNP3'].includes(
                         selected.protocolDriver
                       )
                     "
@@ -1531,228 +1592,211 @@
                         <v-text-field
                           type="text"
                           :input-value="active"
-                          :label="msg.connPeerCertificateFile"
+                          :label="$t('src\\components\\connections.peerCertificateFile')"
                           hide-details="auto"
                           v-model="selected.peerCertFilePath"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connPeerCertificateFileTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connPeerCertificateFileHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.peerCertificateFileTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.peerCertificateFileHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['IEC60870-5-104'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['IEC60870-5-104'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="text"
                           :input-value="active"
-                          :label="msg.connRootCertificateFile"
+                          :label="$t('src\\components\\connections.rootCertificateFile')"
                           hide-details="auto"
                           v-model="selected.rootCertFilePath"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connRootCertificateFileTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connRootCertificateFileHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.rootCertificateFileTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.rootCertificateFileHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['DNP3'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="text"
                           :input-value="active"
-                          :label="msg.connPrivateCertificateFile"
+                          :label="$t('src\\components\\connections.privateCertificateFile')"
                           hide-details="auto"
                           v-model="selected.privateKeyFilePath"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connPrivateCertificateFileTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connPrivateCertificateFileHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.privateCertificateFileTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.privateCertificateFileHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['DNP3'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="text"
                           :input-value="active"
-                          :label="msg.connOpensslCypherList"
+                          :label="$t('src\\components\\connections.opensslCypherList')"
                           hide-details="auto"
                           v-model="selected.cipherList"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connOpensslCypherListTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connOpensslCypherListHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                        {{$t("src\\components\\connections.opensslCypherListTitle")}}
+                        </v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.opensslCypherListHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      [
-                        'DNP3'
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
-                      <v-switch
-                        v-model="selected.allowTLSv10"
-                        inset
-                        color="primary"
-                        :label="`${msg.connAllowTls10}${selected.allowTLSv10?msg.connAllowTls10True:msg.connAllowTls10False}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      v-model="selected.allowTLSv10"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.allowTls10')}${
+                        selected.allowTLSv10
+                          ? $t('src\\components\\connections.allowTls10True')
+                          : $t('src\\components\\connections.allowTls10False')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      [
-                        'DNP3'
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
-                      <v-switch
-                        v-model="selected.allowTLSv11"
-                        inset
-                        color="primary"
-                        :label="`${msg.connAllowTls11}${selected.allowTLSv11?msg.connAllowTls11True:msg.connAllowTls11False}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      v-model="selected.allowTLSv11"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.allowTls11')}${
+                        selected.allowTLSv10
+                          ? $t('src\\components\\connections.allowTls11True')
+                          : $t('src\\components\\connections.allowTls11False')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      [
-                        'DNP3'
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
-                      <v-switch
-                        v-model="selected.allowTLSv12"
-                        inset
-                        color="primary"
-                        :label="`${msg.connAllowTls12}${selected.allowTLSv12?msg.connAllowTls12True:msg.connAllowTls12False}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      v-model="selected.allowTLSv12"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.allowTls12')}${
+                        selected.allowTLSv10
+                          ? $t('src\\components\\connections.allowTls12True')
+                          : $t('src\\components\\connections.allowTls12False')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      [
-                        'DNP3'
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
-                      <v-switch
-                        v-model="selected.allowTLSv13"
-                        inset
-                        color="primary"
-                        :label="`${msg.connAllowTls13}${selected.allowTLSv13?msg.connAllowTls13True:msg.connAllowTls13False}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      v-model="selected.allowTLSv13"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.allowTls13')}${
+                        selected.allowTLSv10
+                          ? $t('src\\components\\connections.allowTls13True')
+                          : $t('src\\components\\connections.allowTls13False')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      [
-                        'IEC60870-5-104'
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['IEC60870-5-104'].includes(selected.protocolDriver)"
                   >
-                      <v-switch
-                        v-model="selected.allowOnlySpecificCertificates"
-                        inset
-                        color="primary"
-                        :label="`${msg.connAllowSpecificCerts}${selected.allowOnlySpecificCertificates?msg.connAllowSpecificCertsTrue:msg.connAllowSpecificCertsFalse}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      v-model="selected.allowOnlySpecificCertificates"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.allowSpecificCerts')}${
+                        selected.allowOnlySpecificCertificates
+                          ? $t('src\\components\\connections.allowSpecificCertsTrue')
+                          : $t('src\\components\\connections.allowSpecificCertsFalse')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      [
-                        'IEC60870-5-104'
-                      ].includes(selected.protocolDriver)
-                    "
+                    v-if="['IEC60870-5-104'].includes(selected.protocolDriver)"
                   >
-                      <v-switch
-                        v-model="selected.chainValidation"
-                        inset
-                        color="primary"
-                        :label="`${msg.connCertChainValidation}${selected.chainValidation?msg.connCertChainValidationTrue:msg.connCertChainValidationFalse}`"
-                        @change="updateProtocolConnection"
-                      ></v-switch>
+                    <v-switch
+                      v-model="selected.chainValidation"
+                      inset
+                      color="primary"
+                      :label="`${$t('src\\components\\connections.certChainValidation')}${
+                        selected.chainValidation
+                          ? $t('src\\components\\connections.certChainValidationTrue')
+                          : $t('src\\components\\connections.certChainValidationFalse')
+                      }`"
+                      @change="updateProtocolConnection"
+                    ></v-switch>
                   </v-list-item>
                 </v-list-item-group>
               </v-list>
             </v-card>
 
-            <v-card class="mt-6" tile
+            <v-card
+              class="mt-6"
+              tile
+              v-if="
+                [
+                  'IEC60870-5-101',
+                  'IEC60870-5-101_SERVER',
+                  'DNP3',
+                  'DNP3_SERVER',
+                  'MODBUS',
+                ].includes(selected.protocolDriver)
+              "
+            >
+              <v-list flat dense shaped subheader>
+                <v-subheader
+                  >Serial Parameters (leave blank for network
+                  connections)</v-subheader
+                >
+                <v-list-item-group>
+                  <v-list-item
                     v-if="
                       [
                         'IEC60870-5-101',
                         'IEC60870-5-101_SERVER',
                         'DNP3',
                         'DNP3_SERVER',
-                        'MODBUS'
+                        'MODBUS',
                       ].includes(selected.protocolDriver)
-                    "
-            >
-              <v-list flat dense shaped subheader>
-                <v-subheader>Serial Parameters (leave blank for network connections)</v-subheader>
-                <v-list-item-group>
-                  <v-list-item
-                    v-if="
-                      ['IEC60870-5-101','IEC60870-5-101_SERVER', 'DNP3','DNP3_SERVER', 'MODBUS'].includes(
-                        selected.protocolDriver
-                      )
                     "
                   >
                     <template v-slot:default="{ active }">
@@ -1760,170 +1804,158 @@
                         <v-text-field
                           type="text"
                           :input-value="active"
-                          :label="msg.connCommPortName"
+                          :label="$t('src\\components\\connections.commPortName')"
                           hide-details="auto"
                           v-model="selected.portName"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connCommPortNameTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connCommPortNameHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>
+                          {{$t("src\\components\\connections.commPortNameTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.commPortNameHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-101','IEC60870-5-101_SERVER', 'DNP3','DNP3_SERVER', 'MODBUS'].includes(
-                        selected.protocolDriver
-                      )
+                      [
+                        'IEC60870-5-101',
+                        'IEC60870-5-101_SERVER',
+                        'DNP3',
+                        'DNP3_SERVER',
+                        'MODBUS',
+                      ].includes(selected.protocolDriver)
                     "
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=150
+                          min="150"
                           :input-value="active"
-                          :label="msg.connBaudRate"
+                          :label="$t('src\\components\\connections.baudRate')"
                           hide-details="auto"
                           v-model="selected.baudRate"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connBaudRateTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connBaudRateHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.baudRateTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.baudRateHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-101','IEC60870-5-101_SERVER', 'DNP3','DNP3_SERVER', 'MODBUS'].includes(
-                        selected.protocolDriver
-                      )
+                      [
+                        'IEC60870-5-101',
+                        'IEC60870-5-101_SERVER',
+                        'DNP3',
+                        'DNP3_SERVER',
+                        'MODBUS',
+                      ].includes(selected.protocolDriver)
                     "
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
-                      <v-select
-                        :items="parityItems"
-                        :input-value="active"
-                        hide-details="auto"
-                        v-model="selected.parity"
-                        :label="msg.connParity"
-                      ></v-select>
+                        <v-select
+                          :items="parityItems"
+                          :input-value="active"
+                          hide-details="auto"
+                          v-model="selected.parity"
+                          :label="$t('src\\components\\connections.parity')"
+                        ></v-select>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connParityTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connParityHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.parityTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.parityHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-101','IEC60870-5-101_SERVER', 'DNP3','DNP3_SERVER', 'MODBUS'].includes(
-                        selected.protocolDriver
-                      )
+                      [
+                        'IEC60870-5-101',
+                        'IEC60870-5-101_SERVER',
+                        'DNP3',
+                        'DNP3_SERVER',
+                        'MODBUS',
+                      ].includes(selected.protocolDriver)
                     "
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
-                      <v-select
-                        :items="stopBitsItems"
-                        :input-value="active"
-                        hide-details="auto"
-                        v-model="selected.stopBits"
-                        :label="msg.connStopBits"
-                      ></v-select>
+                        <v-select
+                          :items="stopBitsItems"
+                          :input-value="active"
+                          hide-details="auto"
+                          v-model="selected.stopBits"
+                          :label="$t('src\\components\\connections.stopBits')"
+                        ></v-select>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connStopBitsTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connStopBitsHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.stopBitsTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.stopBitsHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
                     v-if="
-                      ['IEC60870-5-101','IEC60870-5-101_SERVER', 'DNP3','DNP3_SERVER', 'MODBUS'].includes(
-                        selected.protocolDriver
-                      )
+                      [
+                        'IEC60870-5-101',
+                        'IEC60870-5-101_SERVER',
+                        'DNP3',
+                        'DNP3_SERVER',
+                        'MODBUS',
+                      ].includes(selected.protocolDriver)
                     "
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
-                      <v-select
-                        :items="handshakeItems"
-                        :input-value="active"
-                        hide-details="auto"
-                        v-model="selected.handshake"
-                        :label="msg.connHandshake"
-                      ></v-select>
+                        <v-select
+                          :items="handshakeItems"
+                          :input-value="active"
+                          hide-details="auto"
+                          v-model="selected.handshake"
+                          :label="$t('src\\components\\connections.handshake')"
+                        ></v-select>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connHandshakeTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connHandshakeHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.handshakeTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.handshakeHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
 
                   <v-list-item
-                    v-if="
-                      ['DNP3'].includes(
-                        selected.protocolDriver
-                      )
-                    "
+                    v-if="['DNP3'].includes(selected.protocolDriver)"
                   >
                     <template v-slot:default="{ active }">
                       <v-list-item-action>
                         <v-text-field
                           type="number"
-                          min=0
+                          min="0"
                           :input-value="active"
-                          :label="msg.connAsyncOpenDelay"
+                          :label="$t('src\\components\\connections.asyncOpenDelay')"
                           hide-details="auto"
                           v-model="selected.asyncOpenDelay"
                           @change="updateProtocolConnection"
                         ></v-text-field>
                       </v-list-item-action>
                       <v-list-item-content>
-                        <v-list-item-title
-                          >{{msg.connAsyncOpenDelayTitle}}</v-list-item-title
-                        >
-                        <v-list-item-subtitle
-                          >{{msg.connAsyncOpenDelayHint}}</v-list-item-subtitle
-                        >
+                        <v-list-item-title>{{$t("src\\components\\connections.asyncOpenDelayTitle")}}</v-list-item-title>
+                        <v-list-item-subtitle>{{$t("src\\components\\connections.asyncOpenDelayHint")}}</v-list-item-subtitle>
                       </v-list-item-content>
                     </template>
                   </v-list-item>
                 </v-list-item-group>
               </v-list>
             </v-card>
-
           </v-card>
         </v-scroll-y-transition>
       </v-col>
@@ -1932,13 +1964,11 @@
 </template>
 
 <script>
-import i18n from "@/i18n/i18n-current";
 
 export default {
   name: "ProtocolConnections",
 
   data: () => ({
-    msg: { ...i18n },
     itemsSizeOfCOT: [1, 2],
     itemsSizeOfCA: [1, 2],
     itemsSizeOfIOA: [1, 2, 3],
@@ -1946,7 +1976,13 @@ export default {
     dialogAddURL: false,
     dialogAddRangeScan: false,
     dialogDelConn: false,
-    newRangeScan: {group: 1, variation: 0, startAddress: 0, stopAddress: 0, period: 300},
+    newRangeScan: {
+      group: 1,
+      variation: 0,
+      startAddress: 0,
+      stopAddress: 0,
+      period: 300,
+    },
     newIP: "",
     newURL: "",
     active: [],
@@ -1980,35 +2016,13 @@ export default {
       "OPC-UA",
       "PLCTAG",
       "I104M",
+      "TELEGRAF-LISTENER",
     ],
-    parityItems: [
-      "None",
-      "Even",
-      "Odd",
-      "Mark",
-      "Space",
-    ],
-    stopBitsItems: [
-      "One",
-      "One5",
-      "Two",
-    ],
-    handshakeItems: [
-      "None",
-      "Rts",
-      "Xon",
-      "RtsXon",
-    ],
-    sizeOfLinkAddressItems: [
-      0,
-      1,
-      2,
-    ],
-    timeSyncModeItems: [
-      0,
-      1,      
-      2
-    ],
+    parityItems: ["None", "Even", "Odd", "Mark", "Space"],
+    stopBitsItems: ["One", "One5", "Two"],
+    handshakeItems: ["None", "Rts", "Xon", "RtsXon"],
+    sizeOfLinkAddressItems: [0, 1, 2],
+    timeSyncModeItems: [0, 1, 2],
     protocolConnections: [],
   }),
 
@@ -2040,9 +2054,9 @@ export default {
       delete connDup["id"];
 
       if ("rangeScans" in connDup) {
-      connDup.rangeScans = [];
-      for (let i=0; i<connDup.rangeScansStr.length; i++)
-        connDup.rangeScans.push(JSON.parse(connDup.rangeScansStr[i]))
+        connDup.rangeScans = [];
+        for (let i = 0; i < connDup.rangeScansStr.length; i++)
+          connDup.rangeScans.push(JSON.parse(connDup.rangeScansStr[i]));
       }
       delete connDup["rangeScansStr"];
       return await fetch("/Invoke/auth/updateProtocolConnection", {
@@ -2077,8 +2091,8 @@ export default {
         .catch((err) => console.warn(err));
     },
     async addNewRangeScan() {
-        this.selected.rangeScansStr.push(JSON.stringify(this.newRangeScan));
-        this.updateProtocolConnection();
+      this.selected.rangeScansStr.push(JSON.stringify(this.newRangeScan));
+      this.updateProtocolConnection();
     },
     async addNewIP() {
       if (this.rules.ip(this.newIP) !== true) return;
@@ -2090,7 +2104,10 @@ export default {
     },
     async addNewURL() {
       if (this.rules.opcUrl(this.newURL) !== true) return;
-      if (this.newURL != "" && !this.selected.endpointURLs.includes(this.newURL)) {
+      if (
+        this.newURL != "" &&
+        !this.selected.endpointURLs.includes(this.newURL)
+      ) {
         this.selected.endpointURLs.push(this.newURL);
         this.updateProtocolConnection();
         this.newURL = "";
@@ -2124,11 +2141,13 @@ export default {
         .then((json) => {
           for (let i = 0; i < json.length; i++) {
             json[i].id = i + 1;
-            
+
             json[i].rangeScansStr = [];
-            if ('rangeScans' in json[i])
-            for (let j=0; j<json[i].rangeScans.length; j++)
-              json[i].rangeScansStr.push(JSON.stringify(json[i].rangeScans[j]));
+            if ("rangeScans" in json[i])
+              for (let j = 0; j < json[i].rangeScans.length; j++)
+                json[i].rangeScansStr.push(
+                  JSON.stringify(json[i].rangeScans[j])
+                );
           }
           this.protocolConnections.length = 0;
           this.protocolConnections.push(...json);

@@ -1,6 +1,6 @@
 version: '3.8'
 
-# {json:scada} Demo - (c) 2020 - Ricardo L. Olsen 
+# {json:scada} Demo - (c) 2020-2021 - Ricardo L. Olsen 
 
 # ACCESS VIA WEB BROWSER AT http://127.0.0.1:8080
 # Grafana access http://127.0.0.1:3000, user=admin password=jsonscada
@@ -169,6 +169,20 @@ services:
     volumes:
       - ../src/cs_data_processor:/cs_data_processor
       - ./sql:/sql
+      - ./conf:/conf
+    links:
+      - jsdemo_mongorsn1
+    networks:
+      - jsdemo_net
+
+  # custom script processor
+  cs_custom_processor:
+    image: node:current-alpine3.12
+    container_name: jsdemo_cs_custom_processor
+    command:  sh -c "cd /cs_custom_processor && sleep 10 && node cs_custom_processor.js"
+    restart: unless-stopped
+    volumes:
+      - ../src/cs_custom_processor:/cs_custom_processor
       - ./conf:/conf
     links:
       - jsdemo_mongorsn1

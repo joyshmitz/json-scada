@@ -27,6 +27,8 @@ cp i104m ../../bin/
 
 cd ../cs_data_processor
 npm update
+cd ../cs_custom_processor
+npm update
 cd ../grafana_alert2event
 npm update
 cd ../demo_simul
@@ -40,10 +42,12 @@ npm update
 cd ../oshmi_sync
 npm update
 cd ../htdocs-admin
-npm update
+npm install
 npm run build
 cd ../shell_api
 npm update
 cd ../alarm_beep
+npm update
+cd ../telegraf-listener
 npm update
 

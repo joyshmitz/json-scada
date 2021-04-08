@@ -2,7 +2,7 @@
 //
 //// list of colors representing priorities for the alarms/tabular/events viewers
 //var ColorOfPriority = [ "red", "yellow", "goldenrod", "plum", "silver", "silver", "silver", "silver", "silver", "silver", "silver" ];
-//// list of colors representing the first up to last substation for the alarms/tabular/events viewers
+//// list of colors representing the first up to last group1/substation for the alarms/tabular/events viewers
 //var ColorOfSubstation = [ "cadetblue", "brown", "green", "magenta", "orange", "darkcyan", "goldenrod", "deepskyblue", "indigo", "lightseagreen" ];
 //
 //// Events Viewer --------------------------------------------------------------------------------
@@ -18,27 +18,38 @@
 //var EventsViewer_AckTxtColor = '#606060'; // acknowledged event color
 //var EventsViewer_ElimTxtColor = '#B0B0B0'; // eliminated event color (until removed)
 //
-//var EventsViewer_LineColor = '#E0E0E0'; // line color
-//var EventsViewer_LineColorHighight1 = 'gray'; // Type 1 highlighted alarms color (operated protection)
-//var EventsViewer_LineColorHighight2 = 'black'; // Type 2 highlighted alarms color (circuit breakers state)
-//
 //var EventsViewer_RefreshTime = 15; // refresh time in seconds (digital changes triggers a faster refresh)
+//
+// var EventsViewer_MaxRealtimeEvents = 750; // maximum number of realtime events to show 
+//var EventsViewer_MaxHistoricalEvents = 2500; // maximum number of historical events to query from server at each request
 //
 //// Event time tag configuration
 //// 0 = GPS (field time)
 //// 1 = local time (time when HMI detected the event)
-//// 2 = chosen by operador (defaults to GPS time)
-//// 3 = chosen by operador (defaults to local)
+//// 2 = chosen by the operator (defaults to GPS time)
+//// 3 = chosen by  the operator (defaults to local)
 //var EventsViewer_TimeGPSorLocal = 2;
 //
 //var EventsViewer_AllowFilter = 1;  // 0: no filters, 1=operator can set filter by substation
 //
 //var EventsViewer_Notific = 1;  // 0: disable desktop notifications, 1=enable desktop notifications
 //
-// defines how to handle notification click 
-// defaults to open a screen with the substation name
-//function EventsViewer_NotificationClick( nponto, id, subest ) {
-//    window.open('screen.html?SELTELA=../svg/'+subest+'.svg','screen','dependent=no,height=1000,width=800,toolbar=no,directories=no,status=no,menubar=no,scrollbars=no,resizable=no,modal=no');
+//// locale and time zone for date/time formatting (leave empty for browser defaults)
+//// see https://developer.mozilla.org/pt-BR/docs/Web/JavaScript/Reference/Global_Objects/Date/toLocaleString
+//var EventsViewer_LocaleTime = ""; // locale for time format e.g "en-US"
+//var EventsViewer_LocaleDate = ""; // locale for date format e.g "en-US"
+//// for options to work, a locale must be set
+//var EventsViewer_LocaleTimeOptions = {
+//    // timeZone: 'America/New_York'
+//}; 
+//var EventsViewer_LocaleDateOptions = {
+//    // weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/New_York'
+//}; 
+//
+//// defines how to handle notification click 
+// defaults to open a screen with the group1 (substation) name, adjust for your display naming standard
+//function EventsViewer_NotificationClick( nponto, id, group1 ) {
+//    window.open('display.html?SELTELA=../svg/'+group1+'.svg','screen','dependent=no,height=1000,width=800,toolbar=no,directories=no,status=no,menubar=no,scrollbars=no,resizable=no,modal=no');
 //    }
 //
 //// Tabular Viewer ----------------------------------------------------------------------------------
@@ -54,10 +65,16 @@
 //var TabularViewer_AckTxtColor = '484848'; // acknowledged alarm color
 //
 //var TabularViewer_LineColor = '#DCDCEE'; // line color
-//var TabularViewer_LineColorDestaq1 = 'gray'; // Type 1 highlighted alarms color (operated protection)
-//var TabularViewer_LineColorDestaq2 = 'black'; //  Type 2 highlighted alarms color (circuit breakers state)
 //
 //var TabularViewer_RefreshTime = 7; // refresh time (seconds)
+//
+//// locale and time zone for date/time formatting (leave empty for browser defaults)
+//// see https://developer.mozilla.org/pt-BR/docs/Web/JavaScript/Reference/Global_Objects/Date/toLocaleString
+//var TabularViewer_LocaleDateTime = ""; // locale for time format e.g "en-US"
+//// for options to work, a locale must be set
+//var TabularViewer_LocaleDateTimeOptions = {
+//    // weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric', fractionalSecondDigits: 3, timeZone: 'America/New_York'
+//}; 
 //
 //// Screen Viewer ---------------------------------------------------------------------------------
 //
@@ -83,6 +100,17 @@
 //var ScreenViewer_BarBreakerSwColor = "steelblue"; // color for DJ, SC and bars
 //var ScreenViewer_ShowScreenNameTB = 1; // show screen name on toolbar
 //
+//// parameters for display preview 
+//var ScreenViewer_DefaultDisplayPreviewWidth = 700;
+//var ScreenViewer_DefaultDisplayPreviewHeight = 480;
+//var ScreenViewer_DisplayPreviewZoom = 0.5;
+//
+//var ScreenViewer_PinnedAnnotationsBGColor = "slategray"; // background color of pinned annotations
+//var ScreenViewer_PinnedAnnotationsTextColor = "white"; // text color of pinned annotations
+//var ScreenViewer_PinnedAnnotationsWidth = "300px"; // width of pinned annotations
+//var ScreenViewer_PinnedAnnotationsBorder = "1px solid black"; // border for pinned annotations
+//var ScreenViewer_PinnedAnnotationsFont = "calibri"; // font for pinned annotations
+//var ScreenViewer_PinnedAnnotationsFontSize = "12px"; // font size for pinned annotations
 //
 //// user color palette (use in Inkscape+SAGE color fields as "-cor-05" or "-cor-49")
 //var ScreenViewer_ColorTable = new Array();

@@ -17,6 +17,7 @@ wmic PROCESS WHERE "COMMANDLINE LIKE '%c:\\json-scada\\platform-windows\\nodejs-
 wmic PROCESS WHERE "COMMANDLINE LIKE '%c:\\json-scada\\platform-windows\\browser-runtime\\%'" CALL TERMINATE
 wmic PROCESS WHERE "COMMANDLINE LIKE '%c:\\json-scada\\platform-windows\\mongodb-runtime\\%'" CALL TERMINATE
 wmic PROCESS WHERE "COMMANDLINE LIKE '%c:\\json-scada\\platform-windows\\inkscape-runtime\\%'" CALL TERMINATE
+wmic PROCESS WHERE "COMMANDLINE LIKE '%c:\\json-scada\\platform-windows\\telegraf-runtime\\%'" CALL TERMINATE
 wmic PROCESS WHERE "COMMANDLINE LIKE '%..\\platform-windows\\%'" CALL TERMINATE
 wmic PROCESS WHERE "COMMANDLINE LIKE '%c:\\json-scada\\bin\\%'" CALL TERMINATE
 
@@ -26,6 +27,7 @@ sc delete JSON_SCADA_postgresql
 nssm remove JSON_SCADA_grafana confirm
 nssm remove JSON_SCADA_mongodb confirm 
 nssm remove JSON_SCADA_cs_data_processor confirm
+nssm remove JSON_SCADA_cs_custom_processor confirm
 nssm remove JSON_SCADA_server_realtime confirm
 nssm remove JSON_SCADA_server_realtime_auth confirm
 nssm remove JSON_SCADA_calculations confirm
@@ -46,6 +48,8 @@ nssm remove JSON_SCADA_dnp3client confirm
 nssm remove JSON_SCADA_opcuaclient confirm
 nssm remove JSON_SCADA_i104m confirm
 nssm remove JSON_SCADA_plctags confirm
+nssm remove JSON_SCADA_telegraf_runtime confirm
+nssm remove JSON_SCADA_telegraf_listener confirm
 
 PowerShell -NoProfile -ExecutionPolicy Bypass -Command "& {Start-Process PowerShell -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File ""remove_jsonscada_services.ps1""' -Verb RunAs}"
 

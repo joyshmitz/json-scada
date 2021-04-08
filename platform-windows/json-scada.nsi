@@ -111,6 +111,7 @@ SetRegView 64
   nsExec::Exec 'net stop JSON_SCADA_mongodb'
   nsExec::Exec 'net stop JSON_SCADA_calculations'
   nsExec::Exec 'net stop JSON_SCADA_cs_data_processor'
+  nsExec::Exec 'net stop JSON_SCADA_cs_custom_processor'
   nsExec::Exec 'net stop JSON_SCADA_server_realtime'
   nsExec::Exec 'net stop JSON_SCADA_server_realtime_auth'
   nsExec::Exec 'net stop JSON_SCADA_alarm_beeep'
@@ -124,6 +125,8 @@ SetRegView 64
   nsExec::Exec 'net stop JSON_SCADA_plctags'
   nsExec::Exec 'net stop JSON_SCADA_dnp3client' 
   nsExec::Exec 'net stop JSON_SCADA_opcuaclient' 
+  nsExec::Exec 'net stop JSON_SCADA_telegraf_runtime'
+  nsExec::Exec 'net stop JSON_SCADA_telegraf_listener'
   nsExec::Exec 'net stop JSON_SCADA_nginx'
   nsExec::Exec 'net stop JSON_SCADA_php'
   nsExec::Exec 'c:\json-scada\platform-windows\stop_services.bat'
@@ -223,12 +226,15 @@ SetRegView 64
   File /a /r "..\bin\*.*"
   File /a "..\platform-windows\nssm.exe"
 
+  ; preserve previous start_services.bat
+  Rename $INSTDIR\platform-windows\start_services.bat $INSTDIR\platform-windows\start_services.bat.bak
+
   SetOutPath $INSTDIR\platform-windows
   File /a "..\platform-windows\*.bat"
   File /a "..\platform-windows\*.ps1"
   File /a "..\platform-windows\nssm.exe"
   File /a "..\platform-windows\vc_redist.x64.exe"
-  File /a "..\platform-windows\dotnet-runtime-5.0.3-win-x64.exe"
+  File /a "..\platform-windows\dotnet-runtime-5.0.4-win-x64.exe"
 
   ; Visual C redist: needed for timescaledb
   ;ReadRegStr $0 HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x86" "Major"
@@ -240,7 +246,7 @@ SetRegView 64
   ;  ExecWait '"$INSTDIR\platform-windows\vc_redist.x64.exe" /q'
   ;${EndIf}
   Exec '"$INSTDIR\platform-windows\vc_redist.x64.exe" /q'
-  Exec '"$INSTDIR\platform-windows\dotnet-runtime-5.0.3-win-x64.exe" /install /quiet'
+  Exec '"$INSTDIR\platform-windows\dotnet-runtime-5.0.4-win-x64.exe" /install /quiet'
 
   SetOutPath $INSTDIR\platform-windows\nodejs-runtime
   File /a /r "..\platform-windows\nodejs-runtime\*.*"
@@ -249,7 +255,7 @@ SetRegView 64
   File /a /r "..\platform-windows\ruby-runtime\*.*"
 
   SetOutPath $INSTDIR\platform-windows\telegraf-runtime
-  File /a /r "..\platform-windows\telegraf-runtime\*.*"
+  File /a "..\platform-windows\telegraf-runtime\telegraf.exe"
 
   SetOutPath $INSTDIR\docs
   File /a /r "..\docs\*.*"
@@ -290,10 +296,19 @@ SetRegView 64
   File /a "..\conf-templates\*.*"
 
   ; preserve previous screen_list 
-  Rename $INSTDIR\src\htdocs\svg\screen_list.js $INSTDIR\src\htdocs\svg\screen_list.js.bak
+  ; Rename $INSTDIR\src\htdocs\svg\screen_list.js $INSTDIR\src\htdocs\svg\screen_list.js.bak
 
   SetOutPath $INSTDIR\src\htdocs
-  File /a /r "..\src\htdocs\*.*"
+  File /a "..\src\htdocs\*.*"
+  SetOutPath $INSTDIR\src\htdocs\images
+  File /a /r "..\src\htdocs\images\*.*"
+  SetOutPath $INSTDIR\src\htdocs\charts
+  File /a /r "..\src\htdocs\charts\*.*"
+  SetOutPath $INSTDIR\src\htdocs\lib
+  File /a /r "..\src\htdocs\lib\*.*"
+  SetOutPath $INSTDIR\src\htdocs\i18n
+  File /a /r "..\src\htdocs\i18n\*.*"
+
   SetOutPath $INSTDIR\src\htdocs-admin
   File /a /r "..\src\htdocs-admin\*.*"
   SetOutPath $INSTDIR\src\htdocs-login
@@ -320,11 +335,22 @@ SetRegView 64
   SetOutPath $INSTDIR\src\cs_data_processor
   File /a /r "..\src\cs_data_processor\*.*"
 
+  SetOutPath $INSTDIR\src\cs_custom_processor
+  File /a "..\src\cs_custom_processor\README.md"
+  File /a "..\src\cs_custom_processor\cs_custom_processor.js"
+  File /a "..\src\cs_custom_processor\package.json"
+  File /a "..\src\cs_custom_processor\package-lock.json"
+  SetOutPath $INSTDIR\src\cs_custom_processor\node_modules
+  File /a /r "..\src\cs_custom_processor\node_modules\*.*"
+
   SetOutPath $INSTDIR\src\server_realtime
   File /a /r "..\src\server_realtime\*.*"
 
   SetOutPath $INSTDIR\src\server_realtime_auth
   File /a /r "..\src\server_realtime_auth\*.*"
+
+  SetOutPath $INSTDIR\src\telegraf-listener
+  File /a /r "..\src\telegraf-listener\*.*"
 
   ;SetOutPath $INSTDIR\extprogs
   ;File /a "..\extprogs\vcredist_x86.exe"
@@ -356,6 +382,15 @@ SetRegView 64
 
   SetOverwrite off
 
+  SetOutPath $INSTDIR\src\htdocs\conf
+  File /a /r "..\src\htdocs\conf\*.*"
+
+  SetOutPath $INSTDIR\src\htdocs\svg
+  File /a /r "..\src\htdocs\svg\*.*"
+
+  SetOutPath $INSTDIR\src\cs_custom_processor
+  File /a "..\src\cs_custom_processor\customized_module.js"
+
   SetOutPath $INSTDIR\conf
   File /a "..\conf-templates\php.ini"
   SetOutPath $INSTDIR\platform-windows\nginx_php-runtime\php
@@ -367,6 +402,7 @@ SetRegView 64
   File /a "..\conf-templates\nginx_https.conf"  
   File /a "..\conf-templates\json-scada.json"
   File /a "..\conf-templates\Opc.Ua.DefaultClient.Config.xml"
+  File /a "..\conf-templates\telegraf.conf"
 
 ; Aqui ficam todos os atalhos no Desktop, apagando os antigos
   Delete "$DESKTOP\JSON-SCADA\*.*"
@@ -567,6 +603,16 @@ Section "Uninstall"
   ExecWait `"${SC}" delete "JSON_SCADA_opcuaclient"`
   ClearErrors
 
+  ExecWait `"${SC}" stop "JSON_SCADA_telegraf_runtime"`
+  Sleep 50
+  ExecWait `"${SC}" delete "JSON_SCADA_telegraf_runtime"`
+  ClearErrors
+
+  ExecWait `"${SC}" stop "JSON_SCADA_telegraf_listener"`
+  Sleep 50
+  ExecWait `"${SC}" delete "JSON_SCADA_telegraf_listener"`
+  ClearErrors
+
   ExecWait `"${SC}" stop "JSON_SCADA_iec101server"`
   Sleep 50
   ExecWait `"${SC}" delete "JSON_SCADA_iec101server"`
@@ -580,6 +626,11 @@ Section "Uninstall"
   ExecWait `"${SC}" stop "JSON_SCADA_cs_data_processor"`
   Sleep 50
   ExecWait `"${SC}" delete "JSON_SCADA_cs_data_processor"`
+  ClearErrors
+
+  ExecWait `"${SC}" stop "JSON_SCADA_cs_custom_processor"`
+  Sleep 50
+  ExecWait `"${SC}" delete "JSON_SCADA_cs_custom_processor"`
   ClearErrors
 
   ExecWait `"${SC}" stop "JSON_SCADA_calculations"`

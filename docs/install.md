@@ -176,6 +176,8 @@ Build the code (use inverted slashes, .exe extension and copy instead of cp on W
 
     cd ../cs_data_processor
     npm update
+    cd ../cs_custom_processor
+    npm update
     cd ../grafana_alert2event
     npm update
     cd ../demo_simul
@@ -186,8 +188,10 @@ Build the code (use inverted slashes, .exe extension and copy instead of cp on W
     npm update
     cd ../oshmi2json
     npm update
-    cd ../htdocs-admin
+    cd ../telegraf-listener
     npm update
+    cd ../htdocs-admin
+    npm install
     npm run build
 
 

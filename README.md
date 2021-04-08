@@ -44,7 +44,7 @@ To provide an easy to use, fully-featured, scalable, and portable SCADA/IoT syst
 * Standard IT tools applied to SCADA/IoT (MongoDB, PostgreSQL/TimescaleDB,Node.js, C#, Golang, Grafana, etc.).
 * MongoDB as the real-time core database, persistence layer, config store, SOE historian.
 * Portability and interoperability over Linux, Windows, Mac OSX, x86/64, ARM.
-* Windows installer available in the [releases section](https://github.com/riclolsen/json-scada/releases/tag/V0.7-alpha).
+* Windows installer available in the [releases section](https://github.com/riclolsen/json-scada/releases/tag/V0.8-alpha).
 * Horizontal scalability, from a single computer to big clusters (MongoDB-sharding), Docker containers, VMs, Kubernetes, cloud, or hybrid deployments.
 * Unlimited tags, servers, and users.
 * Modular distributed architecture. Lightweight redundant data acquisition nodes can connect securely over TLS to the database server. E.g. a Raspberry PI can be a data acquisition node.
@@ -94,10 +94,12 @@ To provide an easy to use, fully-featured, scalable, and portable SCADA/IoT syst
 * [IEC60870-5-101 Server Driver](src/lib60870.netcore/iec101server/README.md)
 * [IEC60870-5-101 Client Driver](src/lib60870.netcore/iec101client/README.md)
 * [DNP3 Client Driver](src/dnp3/Dnp3Client/README.md)
+* [Telegraf Listener Driver](src/telegraf-listener/README.md)
 * [OPC-UA Client Driver](src/OPC-UA-Client/README.md)
 * [CIP Ethernet/IP PLCTags Client Driver](src/libplctag/PLCTagsClient/README.md)
 * [I104M Client Driver](src/i104m/README.md)
 * [Change Stream Data Processor](src/cs_data_processor/README.md)
+* [Custom Data Processor](src/cs_custom_processor/README.md)
 * [Realtime Data Server](src/server_realtime/README.md)
 * [SVG Synoptic Display Editor](src/svg-display-editor/README.md)
 * [OSHMI2JSON Tool](src/oshmi2json/README.md)
@@ -118,7 +120,8 @@ To provide an easy to use, fully-featured, scalable, and portable SCADA/IoT syst
 - [x] I104M (adapter for some OSHMI drivers)
 - [x] ICCP Client (via I104M)
 - [ ] Secure ICCP Client
-- [X] OPC UA Client (experimental)
+- [x] Telegraf Client (many data sources available such as MQTT, MODBUS, SNMP, ...)
+- [x] OPC UA Client (experimental)
 - [ ] OPC UA Server
 - [ ] OPC DA Client
 - [ ] OPC DA Server
@@ -151,7 +154,7 @@ To provide an easy to use, fully-featured, scalable, and portable SCADA/IoT syst
 - [ ] Linux Image / VM
 - [x] Supervisor (Linux process manager) examples
 - [ ] InfluxDB Integration
-- [ ] Telegraf Integration
+- [x] Telegraf Integration
 - [ ] Kafka Integration
 - [x] PowerBI Integration (via PostgreSQL connector)
 - [ ] PowerBI Direct Integration
