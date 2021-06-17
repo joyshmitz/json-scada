@@ -1,118 +1,178 @@
-# {json:scada}
+<a href="https://github.com/riclolsen/json-scada/">
+    <img src="https://github.com/riclolsen/json-scada/raw/master/src/htdocs/images/json-scada.svg" alt="JSON:SCADA Logo" title="JSON:SCADA" align="right" height="60" />
+</a>
 
-![logo](/src/htdocs/images/json-scada.svg "{json:scada} Logo")
+{json:scada}
+============
 
 Портативна і масштабуюча платформа SCADA/IoT, згуртована навкруги сервера баз даних MongoDB.
 
+![](https://img.shields.io/badge/node-%3E%3D14-green "Node.js >= 14")
+![](https://img.shields.io/badge/golang-%3E%3D1.14-green "Go >= 1.14")
+![](https://img.shields.io/badge/dotnet-%3E%3D5.0-green "Dotnet >=5.0")
+
+![](https://img.shields.io/badge/mongodb-%3E%3D4.2-green "MongoDB >= 4.2")
+![](https://img.shields.io/badge/postgresql-12-green "PostgreSQL 12")
+![](https://img.shields.io/badge/timescaledb-2.0-green "TimescaleDB 2.0")
+![](https://img.shields.io/badge/grafana-%3E%3D7-green "Grafana >= 7")
+
+![](https://img.shields.io/badge/linux-x86--64-green "Linux x86-64")
+![](https://img.shields.io/badge/linux-ARM-green "Linux ARM")
+![](https://img.shields.io/badge/windows-x86--64-green "Windows x86-64")
+![](https://img.shields.io/badge/macosx-x86--64-green "Mac OSX x86-64")
+![](https://img.shields.io/badge/macosx-ARM--M1-yellow "Mac ARM M1 x86-64")
+
+![](https://img.shields.io/badge/IEC60870--5--104-green "IEC60870-5-104")
+![](https://img.shields.io/badge/IEC60870--5--101-green "IEC60870-5-101")
+![](https://img.shields.io/badge/DNP3-green "DNP3")
+![](https://img.shields.io/badge/MQTT-green "MQTT")
+![](https://img.shields.io/badge/Sparkplug--B-green "Sparkplug B")
+![](https://img.shields.io/badge/OPC--UA-yellow "OPC-UA")
+![](https://img.shields.io/badge/CIP.Ethernet/IP-yellow "CIP Ethernet/IP")
+
+![](https://img.shields.io/badge/license-GPL-green "License GPL")
+![](https://img.shields.io/badge/contributors-welcome-green "Contributors Welcome")
+
+## Опис місії
+
+Надати просту у використанні, повнофункціональну, масштабовану та портативну платформу SCADA/IIoT-I4.0, побудовану за рахунок використання основних ІТ-інструментів з відкритим кодом.
+
+## Screenshots
+
+![screenshots](https://github.com/riclolsen/json-scada/raw/master/docs/screenshots/anim-screenshots.gif "{json:scada} Screenshots")
+
 ## Основні особливості та характеристики
 
-- Стандартні додатки ІТ, згуртовані навкруги SCADA/IoT (MongoDB, PostgreSQL/TimescaleDB, Node.js, C #, Golang, Grafana тощо).
-- MongoDB як основна база даних у режимі реального часу, рівень збереження, сховище конфігурацій, історія.
-- Переносимість та сумісність з Linux, Windows, x86/64, ARM.
-- Горизонтальна масштабованість - від одного комп’ютера до великих кластерів (MongoDB-sharding), контейнерів Docker, VM, Kubernetes, хмари або гібридні розгортання.
-- Необмежена кількість тегів, серверів та користувачів.
-- Модульна розподілена архітектура. Легкі надлишкові вузли збору даних (fog computing) можуть надійно підключатися через TLS до сервера баз даних. Наприклад BigleBone може бути вузлом збору даних, або роутери iRZ.
-- Зміни потоків MongoDB для асинхронної обробки подій бази даних в режимі реального часу.
-- Веб-інтерфейс HTML5. UTF-8/I18N. Мобільний доступ.
-- Редактор SVG на основі Inkscape.
-- Протоколи клієнтів і серверів IEC60870-101/104.
-- PostgreSQL/TimescaleDB, інтегрований з Grafana, для зручного створення інформаційних панелей.
-- Розширення моделі даних (MongoDB: NoSQL/schema-less).
-- Розробка нестандартних додатків із сучасними стеками типу MEAN/MERN тощо. Mongo/Express/Angular(React)/Node .
-- BigData/ML через роз'єм MongoDB до Apache Spark.
-- Доступ до екосистеми MongoDB інструментів, спільноти, послуг тощо.
-- Легка для розуміння система з невеликим розміром коду для кожного незалежного модуля. Широке використання JSON знизу вгору.
-- Можливість легкої інтеграції нових та спеціальних драйверів протоколів, розроблених із сучасними мовами програмування.
-- Незалежність від постачальників, гнучкість, розширюваність.
-- Скорочення людських витрат на обслуговування та розвиток завдяки використанню широко використовуваних ІТ-технологій з відкритим кодом.
-- Оновлення конфігурації наживо.
-- Плани щодо драйверів та протоколів: OPC-UA, DNP3, MODBUS, MQTT, Ethernet/IP.
-- Заплановані інтеграції з: InfluxDB/Telegraf, NodeRed, MS Power BI
+* Стандартні додатки ІТ, згуртовані навкруги SCADA/IoT (MongoDB, PostgreSQL/TimescaleDB, Node.js, C #, Golang, Grafana тощо).
+* MongoDB як основна база даних реального часу, рівень стійкості, сховище конфігурацій, гістограм SOE.
+* Обробка асинхронних даних у реальному часі на основі подій за допомогою MongoDB Change Streams.
+* Переносимість та модульна сумісність у Linux, Windows, Mac OSX, x86/64, ARM.
+* Інсталятор Windows доступний у [розділі випусків] (<https://github.com/riclolsen/json-scada/releases/tag/V0.10-alpha>).
+* Необмежена кількість тегів, серверів та користувачів.
+* Горизонтальна масштабованість, від одного комп'ютера до великих кластерів (шардинг MongoDB), контейнерів Docker, віртуальних машин, Kubernetes, хмарних або гібридних розгортань.
+* Модульна розподілена архітектура. Легкі надлишкові вузли збору даних можуть надійно підключатися через TLS до сервера баз даних. Наприклад Raspberry PI може бути вузлом збору даних.
+* Розширюваність основної моделі даних (MongoDB: NoSQL/schema-less).
+* Веб-інтерфейс HTML5. UTF-8/I18N. Мобільний доступ. Веб-управління конфігурацією.
+* Рольовий контроль доступу (RBAC).
+* Різні високоякісні драйвери протоколів.
+* Інтеграція з брокерами MQTT (сумісність із Sparkplug B).
+* Оновлення конфігурації поточної точки.
+* Редактор синоптичних дисплеїв SVG на основі Inkscape.
+* Історик PostgreSQL/TimescaleDB інтегрований з Grafana для зручного створення інформаційних панелей.
+* Проста розробка спеціальних програм із сучасними стеками, такими як MEAN/MERN тощо. Широке використання JSON знизу вгору.
+* Використовуйте величезну екосистему інструментів спільноти MongoDB/PostgreSQL, послуг, тощо.
 
 ## Випадки використання
 
-- Електро/Нафто/Газо/Комунальних організаціях, локальне устаткування HMI.
-- Виробництво на невеликих, локальних HMI.
-- Шлюз протоколу SCADA.
-- Глобальна система SCADA Control Center.
-- Історичні данні SCADA/IoT. Інтеграція MS Power BI.
-- Інтранет/Інтернет HTTPS шлюз - сервер візуалізації.
-- Багаторівневий системний інтегратор (SCADA/IoT/ERP/MES/PLC).
-- Інтеграція/централізація систем SCADA глобального рівня.
-- Розширювана платформа розвитку для збору та обробки даних.
-- Концентратор даних для обробки BigData/ML.
+* Електро/Нафто/Газо/Комунальних організаціях, локальне устаткування HMI.
+* Виробництво на невеликих, локальних HMI.
+* Шлюз протоколу SCADA.
+* Глобальна система SCADA Control Center.
+* Історичні данні SCADA/IoT. Інтеграція MS Power BI.
+* Інтранет/Інтернет HTTPS шлюз - сервер візуалізації.
+* Багаторівневий системний інтегратор (SCADA/IoT/ERP/MES/PLC).
+* Інтеграція/централізація систем SCADA глобального рівня.
+* Розширювана платформа розвитку для збору та обробки даних.
+
+* Концентратор даних для обробки BigData/ML.
 
 ## Архітектура
 
 ![architecture](docs/ua_JSON-SCADA_ARCHITECTURE.png "{json:scada} Architecture")
 
-## License
+## Документація
 
-    {json:scada} A portable SCADA/IoT platform centered on the MongoDB database server.
-    Copyright (C) 2020 Ricardo L. Olsen
+* [Install Guide](https://github.com/riclolsen/json-scada/blob/master/docs/install.md)
+* [Windows installer](https://github.com/riclolsen/json-scada/releases/tag/V0.9-alpha)
+* [Docker Demo](https://github.com/riclolsen/json-scada/blob/master/demo-docker/README.md)
+* [Schema Documentation](https://github.com/riclolsen/json-scada/blob/master/docs/schema.md)
+* [Config File](https://github.com/riclolsen/json-scada/blob/master/conf/README.md)
+* [SVG Synoptic Display Editor](https://github.com/riclolsen/json-scada/blob/master/src/svg-display-editor/README.md)
+* [IEC60870-5-104 Server Driver](https://github.com/riclolsen/json-scada/blob/master/src/lib60870.netcore/iec104server/README.md)
+* [IEC60870-5-104 Client Driver](https://github.com/riclolsen/json-scada/blob/master/src/lib60870.netcore/iec104client/README.md)
+* [IEC60870-5-101 Server Driver](https://github.com/riclolsen/json-scada/blob/master/src/lib60870.netcore/iec101server/README.md)
+* [IEC60870-5-101 Client Driver](https://github.com/riclolsen/json-scada/blob/master/src/lib60870.netcore/iec101client/README.md)
+* [DNP3 Client Driver](https://github.com/riclolsen/json-scada/blob/master/src/dnp3/Dnp3Client/README.md)
+* [Telegraf Listener Driver](https://github.com/riclolsen/json-scada/blob/master/src/telegraf-listener/README.md)
+* [MQTT Sparkplug-B Client Driver](https://github.com/riclolsen/json-scada/blob/master/src/mqtt-sparkplug/README.md)
+* [OPC-UA Client Driver](https://github.com/riclolsen/json-scada/blob/master/src/OPC-UA-Client/README.md)
+* [CIP Ethernet/IP PLCTags Client Driver](https://github.com/riclolsen/json-scada/blob/master/src/libplctag/PLCTagsClient/README.md)
+* [I104M Client Driver](https://github.com/riclolsen/json-scada/blob/master/src/i104m/README.md)
+* [Calculations](https://github.com/riclolsen/json-scada/blob/master/src/calculations/README.md)
+* [Change Stream Data Processor](https://github.com/riclolsen/json-scada/blob/master/src/cs_data_processor/README.md)
+* [Custom Data Processor](https://github.com/riclolsen/json-scada/blob/master/src/cs_custom_processor/README.md)
+* [Realtime Data Server](https://github.com/riclolsen/json-scada/blob/master/src/server_realtime/README.md)
+* [OSHMI2JSON Tool](https://github.com/riclolsen/json-scada/blob/master/src/oshmi2json/README.md)
+* [Report Generators](https://github.com/riclolsen/json-scada/blob/master/docs/report_generators.md)
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.
+## Протоколи план дій
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+- [x] IEC 60870-5-104 Server TCP
+- [ ] IEC 60870-5-104 Server TLS
+- [x] IEC 60870-5-104 Client TCP/TLS
+- [x] IEC 60870-5-101 Server (Serial, TCP)
+- [x] IEC 60870-5-101 Client (Serial, TCP)
+- [ ] IEC 60870-5-103 Client
+- [x] DNP3 Client (TCP, UDP, TLS, Serial)
+- [ ] DNP3 Server (TCP, UDP, TLS, Serial)
+- [x] MQTT/Sparkplug-B Client
+- [x] I104M (adapter for some OSHMI drivers)
+- [x] ICCP Client (via I104M)
+- [ ] Secure ICCP Client
+- [x] Telegraf Client (OPC-UA, MQTT, MODBUS, SNMP, ...)
+- [x] OPC UA Client (experimental)
+- [ ] OPC UA Server
+- [ ] OPC DA Client
+- [ ] OPC DA Server
+- [ ] Modbus Client
+- [ ] IEC 61850 MMS Client
+- [ ] IEC 61850 GOOSE Client
+- [x] CIP Ethernet/IP (libplctag, experimental)
+- [ ] Siemens S7
+- [ ] BACNET
+- [ ] OPC UA Historical Data Server
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+## Особливості план дій
 
-## Contributors License Agreement - CLA
+- [x] Web-based Viewers
+- [x] Web-based Configuration Manager
+- [x] User auth/Role-based Access Control (RBAC)
+- [x] Inkscape-based SVG Synoptic Editor
+- [x] Compiled Calculations Engine
+- [x] Customizable Change-Stream Processor (for user implemented scripts)
+- [ ] Low-latency/Interpreted Calculations Engine
+- [x] Basic Alarms Processor
+- [ ] Advanced Alarms Processor 
+- [x] PostgreSQL/TimescaleDB Historian
+- [x] Grafana Integration 
+- [x] Grafana Alerting Integration (w/ Events Viewer)
+- [x] Windows Installer
+- [x] Online Demo
+- [x] Docker Demo (docker-compose.yaml scripts)
+- [x] Dedicated Docker Containers
+- [ ] Linux Image / VM
+- [x] Supervisor (Linux process manager) examples
+- [ ] InfluxDB Integration
+- [x] Telegraf Integration
+- [ ] Kafka Integration
+- [x] PowerBI Integration (via PostgreSQL connector)
+- [ ] PowerBI Direct Integration
+- [ ] NodeRed Integration
+- [x] Metabase Integration (via PostgreSQL connector)
+- [ ] Alerta Integration (https://alerta.io/)
+- [ ] PLC4X Integration (https://plc4x.apache.org/)
+- [ ] Managed Cloud Service
 
-Contributors are welcome. Pull request authors must agree with this CLA.
+## Демонстрація Онлайн (симуляція підстанцій)
 
-You, the Contributor, accept and agree to the following terms and conditions for Your present and future Contributions submitted to this project. Except for the license granted herein to this project author, You reserve all right, title, and interest in and to Your Contributions.
+* http://vmi233205.contaboserver.net:8080/
 
-Licenses
+Ця демонстрація забезпечує загальнодоступний порт сервера IEC 60870-5-104 на IP-адресу 207.180.242.96:2404 (загальна адреса = 1) для тестування.
 
-This project (code, documentation, and any other materials) is released under the terms of the individual licenses as noted in the project's repository, or, if no separate license is specified, under the terms of the GPL3 license.
+Демонстраційні дані публікуються як звичайні теми MQTT для публічного брокера mqtt://test.mosquitto.org:1883 (близько 8600 тем у ACME_Utility/#).
 
-You certify that:
+Дані також публікуються як Sparkplug-B на mqtt://test.mosquitto.org:1883 (близько 4300 метрик пристроїв у spBv1.0/Sparkplug B Devices/+/JSON-SCADA Server/#). Дані/походження стискаються за допомогою бібліотеки Eclipse Tahu Javascript.
 
-- (a) Your Contributions are created in whole or in part by You and You have the right to submit it under the designated license; or
+## Developer Contact
 
-- (b) Your Contributions are based upon previous work that, to the best of your knowledge, is covered under an appropriate open source license and You have the right under that license to submit that work with modifications, whether created in whole or in part by You, under the designated license; or
-
-- (c) Your Contributions are provided directly to You by some other person who certified (a) or (b) and You have not modified them.
-
-- (d) You understand and agree that Your Contributions are public and that a record of the Contributions (including all metadata and personal information You submit with them) is maintained indefinitely in the project repositories and all its forks.
-
-- (e) You are granting Your Contributions to this project under the terms of the license as noted in the project's repository.
-
-- (f) Contributors must provide name, email or social network contact and the phrase "I AGREE with the Contributors License Agreement of the project.".
-
-## Documentation
-
-* [Docker Demo](demo-docker/README.md)
-* [Config File](conf/README.md)
-* [Calculations](src/calculations/README.md)
-* [IEC60870-5-104 Server Driver](src/lib60870.netcore/iec104server/README.md)
-* [IEC60870-5-104 Client Driver](src/lib60870.netcore/iec104client/README.md)
-* [IEC60870-5-101 Server Driver](src/lib60870.netcore/iec101server/README.md)
-* [IEC60870-5-101 Client Driver](src/lib60870.netcore/iec101client/README.md)
-* [DNP3 Client Driver](src/dnp3/Dnp3Client/README.md)
-* [CIP Ethernet/IP PLCTags Client Driver](src/libplctag/PLCTagsClient/README.md)
-* [I104M Client Driver](src/i104m/README.md)
-* [Change Stream Data Processor](src/cs_data_processor/README.md)
-* [Realtime Data Server](src/server_realtime/README.md)
-* [SVG Synoptic Display Editor](src/svg-display-editor/README.md)
-* [OSHMI2JSON Tool](src/oshmi2json/README.md)
-* [Schema Documentation](docs/schema.md)
-* [Install Guide](docs/install.md)
-
-## Requirements
-
-- Node.js 14.
-- Dotnet Core 3.1.
-- Golang 1.14.
-- MongoDB 4.2.
-- PostgreSQL 12.
-- TimescaleDB 1.7.
-- Grafana 7.0.
-
-## Contact
+* https://www.linkedin.com/in/ricardo-olsen/
