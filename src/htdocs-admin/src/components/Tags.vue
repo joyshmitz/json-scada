@@ -12,7 +12,7 @@
       :items-per-page="15"
     >
       <template v-slot:top>
-        <v-toolbar flat>
+        <v-toolbar flat class="d-print-none">
           <v-toolbar-title>{{
             $t("src\\components\\tags.tags")
           }}</v-toolbar-title>
@@ -340,7 +340,7 @@
         </v-toolbar>
       </template>
 
-      <template v-slot:item.Actions="{ item }">
+      <template v-slot:[`item.Actions`]="{ item }">
         <v-icon small class="mr-2" @click="editTag(item)"> mdi-pencil </v-icon>
         <v-icon small @click="deleteTagOpenDialog(item)"> mdi-delete </v-icon>
       </template>

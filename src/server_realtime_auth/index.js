@@ -23,8 +23,8 @@ const IP_BIND = process.env.JS_IP_BIND || 'localhost'
 const HTTP_PORT = process.env.JS_HTTP_PORT || 8080
 const GRAFANA_SERVER = process.env.JS_GRAFANA_SERVER || 'http://127.0.0.1:3000'
 const OPCAPI_AP = '/Invoke/' // mimic of webhmi from OPC reference app https://github.com/OPCFoundation/UA-.NETStandard/tree/demo/webapi/SampleApplications/Workshop/Reference
-const API_AP = '/server_realtime'
-const APP_NAME = ':' + HTTP_PORT + API_AP
+const GETFILE_AP = '/GetFile' // API Access point for requesting mongodb files (gridfs)
+const APP_NAME = 'server_realtime_auth'
 const COLL_REALTIME = 'realtimeData'
 const COLL_SOE = 'soeData'
 const COLL_COMMANDS = 'commandsQueue'
@@ -40,6 +40,7 @@ var cookieParser = require('cookie-parser')
 const fs = require('fs')
 const mongo = require('mongodb')
 const MongoClient = require('mongodb').MongoClient
+var Grid = require('gridfs-stream');
 const opc = require('./opc_codes.js')
 const { Pool } = require('pg')
 const UserActionsQueue = require('./userActionsQueue')
@@ -148,9 +149,43 @@ let pool = null
 
   if (AUTHENTICATION) {
     require('./app/routes/auth.routes')(app, OPCAPI_AP)
-    require('./app/routes/user.routes')(app, OPCAPI_AP, opcApi)
+    require('./app/routes/user.routes')(app, OPCAPI_AP, opcApi, GETFILE_AP, getFileApi)
   } else {
     app.post(OPCAPI_AP, opcApi)
+    app.get(GETFILE_AP, getFileApi)
+  }
+
+  // find file on mongodb gridfs and return it
+  async function getFileApi (req, res) {
+    let filename = req.query?.name || ''    
+    let bucketName = req.query?.bucket || 'fs'
+    let mimeType = req.query?.mime || path.basename(filename)
+    let refresh = req.query.refresh || 0
+
+    if (filename.trim() === ''){
+      res.setHeader('Content-type', 'application/json')
+      res.send("{ error: 'Parameter [name] empty or not specified' }")
+    }
+    try{
+      let gfs = new mongo.GridFSBucket(db, {bucketName: bucketName })
+      let f = await gfs.find({filename: filename}).toArray()
+      if (f.length === 0){
+        console.log('File not found ' + filename)
+        res.setHeader('Content-type', 'application/json')
+        res.send("{ error: 'File not found' }")
+        return
+      }
+      let readstream = gfs.openDownloadStreamByName(filename)
+      res.type(mimeType)
+      res.setHeader('Content-disposition', 'inline; filename="'+filename+'"')
+      if (refresh) res.setHeader('Refresh', refresh);
+      readstream.pipe(res)
+      }
+      catch(e){
+        console.log('File not found: ' + filename + ' ' + e.message)
+        res.setHeader('Content-type', 'application/json')
+        res.send("{ error: 'File not found' }")
+      }
   }
 
   // OPC WEB HMI API
@@ -639,19 +674,35 @@ let pool = null
                       }
                     }
 
+                    let addressing = {}
+                    if (
+                      isNaN(data.protocolSourceCommonAddress) ||
+                      isNaN(data.protocolSourceObjectAddress) ||
+                      isNaN(data.protocolSourceASDU)
+                    ){ // non numerical addressing
+                      addressing = {
+                        protocolSourceCommonAddress: data.protocolSourceCommonAddress,
+                        protocolSourceObjectAddress: data.protocolSourceObjectAddress,
+                        protocolSourceASDU: data.protocolSourceASDU
+                      }
+                    }
+                    else { // numerical addressing: force data type as BSON double
+                      addressing = {
+                        protocolSourceCommonAddress: new mongo.Double(
+                          data.protocolSourceCommonAddress
+                        ),
+                        protocolSourceObjectAddress: new mongo.Double(
+                          data.protocolSourceObjectAddress
+                        ),
+                        protocolSourceASDU: new mongo.Double(data.protocolSourceASDU)
+                      }
+                    }
+
                     let result = await db.collection(COLL_COMMANDS).insertOne({
                       protocolSourceConnectionNumber: new mongo.Double(
                         data.protocolSourceConnectionNumber
                       ),
-                      protocolSourceCommonAddress: new mongo.Double(
-                        data.protocolSourceCommonAddress
-                      ),
-                      protocolSourceObjectAddress: new mongo.Double(
-                        data.protocolSourceObjectAddress
-                      ),
-                      protocolSourceASDU: new mongo.Double(
-                        data.protocolSourceASDU
-                      ),
+                      ... addressing,
                       protocolSourceCommandDuration: new mongo.Double(
                         data.protocolSourceCommandDuration
                       ),
@@ -666,7 +717,7 @@ let pool = null
                       originatorIpAddress:
                         req.headers['x-real-ip'] ||
                         req.headers['x-forwarded-for'] ||
-                        req.connection.remoteAddress
+                        req.socket.remoteAddress
                     })
                     // console.log(result);
                     if (result.insertedCount !== 1) {
@@ -1017,6 +1068,7 @@ let pool = null
                   invalid: 1,
                   timeTag: 1,
                   alarmed: 1,
+                  frozen: 1,
                   type: 1,
                   annotation: 1,
                   origin: 1,
@@ -1173,6 +1225,7 @@ let pool = null
                           _id: pointInfo._id,
                           valueString: pointInfo.valueString,
                           alarmed: pointInfo.alarmed,
+                          ...(pointInfo.type==='analog'?{frozen:pointInfo.frozen}:{}),
                           transit: pointInfo.transit,
                           annotation: pointInfo.annotation,
                           notes: pointInfo.notes,
@@ -1184,6 +1237,7 @@ let pool = null
                             valueString: pointInfo.valueString,
                             valueDefault: pointInfo.valueDefault,
                             alarmed: pointInfo.alarmed,
+                            ...(pointInfo.type==='analog'?{frozen:pointInfo.frozen}:{}),
                             alarmDisabled: pointInfo.alarmDisabled,
                             transit: pointInfo.transit,
                             group1: pointInfo.group1,
@@ -1281,6 +1335,7 @@ let pool = null
                         valueString: node.valueString,
                         valueDefault: node.valueDefault,
                         alarmed: node.alarmed,
+                        ...(node.type==='analog'?{frozen:node.frozen}:{}),
                         alarmDisabled: node.alarmDisabled,
                         alarmState: node.alarmState,
                         isEvent: node.isEvent,

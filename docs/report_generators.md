@@ -17,6 +17,10 @@ https://grafana.com/grafana/dashboards/11365
 Grafana paid options (Enterprise or Cloud) can do reporting.
 https://grafana.com/docs/grafana/latest/enterprise/reporting/
 
+### Budibase
+Budibase is an open-source low-code platform. Supports MongoDB, PostgreSQL and other data sources.
+https://github.com/Budibase/budibase
+
 ### Apache superset
 Java-based BI tool.
 https://github.com/apache/superset
@@ -49,6 +53,10 @@ https://helicalinsight.github.io/helicalinsight/#/quickstart
 Data mining, ML and visualization tool. 
 https://github.com/biolab/orange3
 
+### JSReport
+An open-source platform for designing and rendering various reports.
+https://github.com/jsreport/jsreport
+
 ### MS Power BI
 This is a popular commercial (with some free tiers) BI Package that can work with PostgreSQL. It is not a report generator but can suit most needs. It can work with MongoDB using the _MongoBD Connector for BI_.
 https://docs.mongodb.com/bi-connector/master/connect/powerbi/
@@ -69,3 +77,11 @@ https://www.reportico.org
 ### Carbone
 Node.js/JSON reporting tool.
 https://github.com/Ideolys/carbone
+
+### Storybook
+Storybook is an open source tool for building UI components and pages in isolation. It streamlines UI development, testing, and documentation.
+https://storybook.js.org/
+
+### Supabase
+Open source Firebase alternative. Supports PostgreSQL.
+https://github.com/supabase/supabase

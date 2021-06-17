@@ -19,34 +19,35 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+const RJSON = require('relaxed-json')
+const { JSONPath } = require('jsonpath-plus')
+const { VM } = require('vm2')
+const Streamifier = require('streamifier')
 const SparkplugClient = require('./sparkplug-client')
-const fs = require('fs')
-const mongo = require('mongodb')
+const Fs = require('fs')
+const Mongo = require('mongodb')
 const MongoClient = require('mongodb').MongoClient
+const Grid = require('gridfs-stream')
 const Queue = require('queue-fifo')
 const { setInterval } = require('timers')
+const Log = require('./simple-logger')
+const AppDefs = require('./app-defs')
+const LoadConfig = require('./load-config')
+const Redundancy = require('./redundancy')
+const AutoTag = require('./auto-tag')
+const { timeEnd } = require('console')
 
-const Log = {
-  // simple message logger
-  levelMin: 0,
-  levelNormal: 1,
-  levelDetailed: 2,
-  levelDebug: 3,
-  levelCurrent: 1,
-  log: function (msg, level = 1) {
-    if (level <= this.levelCurrent) {
-      let dt = new Date()
-      console.log(dt.toISOString() + ' - ' + msg)
-    }
-  }
-}
-
+const SparkplugNS = 'spBv1.0'
+const DevicesList = []
 const ValuesQueue = new Queue() // queue of values to update acquisition
+const SparkplugPublishQueue = new Queue() // queue of values to publish as Sparkplug-B
+const MqttPublishQueue = new Queue() // queue of values to publish as standard MQTT topics
+let SparkplugDeviceBirthed = false
 let AutoCreateTags = true
-let AutoKeyId = 0
 
 ;(async () => {
-  const jsConfig = loadConfig()
+  const jsConfig = LoadConfig() // load and parse config file
+  Log.logLevelCurrent = jsConfig.LogLevel
   const csPipeline = [
     {
       $project: { documentKey: false }
@@ -80,44 +81,116 @@ let AutoKeyId = 0
     }
   ]
 
-  const PublishQueue = new Queue() // queue of values to publish
-  const sparkplugClient = { handle: null } // points to sparkplug-client object
-  let collection = null
+  const SparkplugClientObj = { handle: null } // points to sparkplug-client object
+  let rtCollection = null
+  let cmdCollection = null
   let clientMongo = null
   let connection = null
 
+  // process sparkplug queue
   setInterval(async function () {
-    let cnt = 0,
-      metrics = []
-    if (clientMongo && collection)
-      while (!PublishQueue.isEmpty()) {
-        let data = PublishQueue.peek()
-        metrics.push(data)
-        PublishQueue.dequeue()
+    if (
+      SparkplugClientObj.handle &&
+      SparkplugClientObj.handle.connected &&
+      connection
+    ) {
+      let cnt = 0,
+        metrics = []
+
+      while (!SparkplugPublishQueue.isEmpty()) {
+        let data = SparkplugPublishQueue.peek()
+        SparkplugPublishQueue.dequeue()
+
+        // publish as normal topics
+        if (
+          connection.publishTopicRoot &&
+          connection.publishTopicRoot.trim() !== '' &&
+          'properties' in data
+        ) {
+          // publish value under root/group1/group2/group3/name
+          if ('topic' in data.properties)
+            SparkplugClientObj.handle.client.publish(
+              data.properties.topic.value,
+              data.value.toString(),
+              { retain: true }
+            )
+
+          // publish under root/@jsons-scada/tags/group1/tags/value: value, timestamp, good (value quality), ...
+          SparkplugClientObj.handle.client.publish(
+            data.properties.topicAsTag.value,
+            JSON.stringify({
+              value: data.value,
+              valueString: data?.properties?.valueString?.value,
+              valueJson: data?.properties?.valueJson?.value,
+              type: data?.type,
+              ...('timestamp' in data ? { timestamp: data.timestamp } : {}),
+              ...('good' in data.properties
+                ? { good: data.properties.good.value }
+                : {})
+            }),
+            { retain: true }
+          )
+
+          // remove (static) properties to avoid publishing to sparkplug
+          delete data.properties.topic
+          delete data.properties.topicAsTag
+        }
+
+        // aggregate for sparkplug publishing
+        if (connection.groupId && connection.groupId.trim() !== '') {
+          if (!('name' in data))
+            // do not publish initial device metrics (they have name property)
+            metrics.push(data)
+        }
         cnt++
       }
-    if (cnt) {
-      let payload = {
-        timestamp: new Date().getTime(),
-        metrics: metrics
+
+      // publish metrics as sparkplug b device data
+      if (metrics.length > 0) {
+        let payload = {
+          timestamp: new Date().getTime(),
+          metrics: metrics
+        }
+        if (Log.logLevelCurrent >= Log.levelDetailed)
+          Log.log(
+            'Sparkplug - Publish - ' + JSON.stringify(payload),
+            Log.levelDetailed
+          )
+        SparkplugClientObj.handle.publishDeviceData(
+          connection.deviceId,
+          payload,
+          {compress: AppDefs.SPARKPLUG_COMPRESS_DDATA}
+        )
+        Log.log('Sparkplug - Publish metrics updates: ' + cnt, Log.levelNormal)
       }
-      // Log.log(JSON.stringify(payload))
-      Log.log('Sparkplug - Updates: ' + cnt, Log.levelNormal)
+    } else {
+      if (SparkplugPublishQueue.size() > AppDefs.MAX_QUEUEDMETRICS)
+        Log.log(
+          'Sparkplug - Publish queue exceeded limit, discarding updates...',
+          Log.levelDetailed
+        )
+      while (SparkplugPublishQueue.size() > AppDefs.MAX_QUEUEDMETRICS) {
+        SparkplugPublishQueue.dequeue()
+      }
     }
-  }, 1127)
+  }, AppDefs.SPARKPLUG_PUBLISH_INTERVAL)
 
   setInterval(async function () {
-    processMongoUpdates(clientMongo, collection, jsConfig)
+    processMongoUpdates(clientMongo, rtCollection, jsConfig)
   }, 500)
 
   Log.log('MongoDB - Connecting to MongoDB server...', Log.levelMin)
 
-  let redundancyIntervalHandle = null
   while (true) {
     // repeat every 5 seconds
 
     // manages MQTT connection
-    await sparkplugProcess(sparkplugClient, connection, jsConfig, clientMongo)
+    await sparkplugProcess(
+      SparkplugClientObj,
+      connection,
+      jsConfig,
+      clientMongo
+    )
 
     if (clientMongo === null)
       // if disconnected
@@ -133,7 +206,8 @@ let AutoKeyId = 0
 
         // specify db and collections
         const db = client.db(jsConfig.mongoDatabaseName)
-        collection = db.collection(jsConfig.RealtimeDataCollectionName)
+        rtCollection = db.collection(jsConfig.RealtimeDataCollectionName)
+        cmdCollection = db.collection(jsConfig.CommandsQueueCollectionName)
 
         // find the connection number, if not found abort (only one connection per instance is allowed for this protocol)
         connection = await getConnection(
@@ -146,44 +220,165 @@ let AutoKeyId = 0
           AutoCreateTags = connection.autoCreateTags ? true : false
         }
 
-        AutoKeyId = await getAutoKeyInitialValue(collection, jsConfig)
-        Log.log('Auto Key - Initial value: ' + AutoKeyId)
+        let autoKeyId = await AutoTag.GetAutoKeyInitialValue(
+          rtCollection,
+          jsConfig
+        )
+        Log.log('Auto Key - Initial value: ' + autoKeyId)
 
-        // check and update redundancy control
-        ProcessRedundancy(clientMongo, db, jsConfig)
-        clearInterval(redundancyIntervalHandle)
-        redundancyIntervalHandle = setInterval(function () {
-          ProcessRedundancy(clientMongo, db, jsConfig)
-        }, 5000)
+        Redundancy.Start(5000, clientMongo, db, jsConfig)
 
-        const changeStream = collection.watch(csPipeline, {
-          fullDocument: 'updateLookup'
-        })
-
-        try {
-          changeStream.on('error', change => {
-            if (clientMongo) clientMongo.close()
-            clientMongo = null
-            Log.log('MongoDB - Error on ChangeStream!')
-          })
-          changeStream.on('close', change => {
-            if (clientMongo) clientMongo.close()
-            clientMongo = null
-            Log.log('MongoDB - Closed ChangeStream!')
-          })
-          changeStream.on('end', change => {
-            if (clientMongo) clientMongo.close()
-            clientMongo = null
-            Log.log('MongoDB - Ended ChangeStream!')
+        // start a changestream monitor on realtimeData only if configured some MQTT publishing
+        if (
+          (connection.publishTopicRoot &&
+            connection.publishTopicRoot.length > 0) ||
+          (connection.groupId && connection.groupId.length > 0)
+        ) {
+          const changeStream = rtCollection.watch(csPipeline, {
+            fullDocument: 'updateLookup'
           })
 
-          // start listen to changes
-          changeStream.on('change', change => {
-            let data = getMetricPayload(change.fullDocument)
-            if (data !== null) PublishQueue.enqueue(data)
+          try {
+            changeStream.on('error', change => {
+              if (clientMongo) clientMongo.close()
+              clientMongo = null
+              Log.log('MongoDB - Error on ChangeStream!')
+            })
+            changeStream.on('close', change => {
+              if (clientMongo) clientMongo.close()
+              clientMongo = null
+              Log.log('MongoDB - Closed ChangeStream!')
+            })
+            changeStream.on('end', change => {
+              if (clientMongo) clientMongo.close()
+              clientMongo = null
+              Log.log('MongoDB - Ended ChangeStream!')
+            })
+
+            // start listen to changes
+            changeStream.on('change', change => {
+              // do not queue data changes until device connected and birthed
+              if (
+                !SparkplugDeviceBirthed ||
+                !SparkplugClientObj.handle.connected
+              )
+                return
+
+              let data = getMetricPayload(change.fullDocument, connection)
+              if (data) SparkplugPublishQueue.enqueue(data)
+            })
+          } catch (e) {
+            Log.log('MongoDB - CS Error: ' + e, Log.levelMin)
+          }
+        }
+
+        if (connection.commandsEnabled) {
+          const csCmdPipeline = [
+            {
+              $project: { documentKey: false }
+            },
+            {
+              $match: {
+                $and: [
+                  {
+                    'fullDocument.protocolSourceConnectionNumber': {
+                      $eq: connection.protocolConnectionNumber
+                    }
+                  },
+                  { operationType: 'insert' }
+                ]
+              }
+            }
+          ]
+
+          const changeStreamCmd = cmdCollection.watch(csCmdPipeline, {
+            fullDocument: 'updateLookup'
           })
-        } catch (e) {
-          Log.log('MongoDB - Error: ' + e, Log.levelMin)
+          try {
+            changeStreamCmd.on('error', change => {
+              if (clientMongo) clientMongo.close()
+              clientMongo = null
+              Log.log('MongoDB - Error on ChangeStream Cmd!')
+            })
+            changeStreamCmd.on('close', change => {
+              if (clientMongo) clientMongo.close()
+              clientMongo = null
+              Log.log('MongoDB - Closed ChangeStream Cmd!')
+            })
+            changeStreamCmd.on('end', change => {
+              if (clientMongo) clientMongo.close()
+              clientMongo = null
+              Log.log('MongoDB - Ended ChangeStream Cmd!')
+            })
+
+            // start listen to changes
+            changeStreamCmd.on('change', change => {
+              // do not queue data changes until device connected and birthed
+              if (
+                !SparkplugDeviceBirthed ||
+                !SparkplugClientObj.handle.connected
+              )
+                return
+
+              if (
+                change.fullDocument?.protocolSourceConnectionNumber !==
+                connection.protocolConnectionNumber
+              )
+                return // not for this connection
+
+              // console.log(JSON.stringify(change))
+              let data = getMetricCommandPayload(change.fullDocument)
+              if (!data) return
+
+              if (data.deviceId) {
+                data.metric.timestamp = new Date(
+                  change.fullDocument.timeTag
+                ).getTime()
+                SparkplugClientObj.handle.publishDeviceCmd(
+                  data.groupId,
+                  data.edgeNodeId,
+                  data.deviceId,
+                  {
+                    timestamp: new Date(change.fullDocument.timeTag).getTime(),
+                    metrics: [data.metric]
+                  }
+                )
+              } else if (data.groupId) {
+                data.metric.timestamp = new Date(
+                  change.fullDocument.timeTag
+                ).getTime()
+                SparkplugClientObj.handle.publishNodeCmd(
+                  data.groupId,
+                  data.edgeNodeId,
+                  {
+                    timestamp: new Date(change.fullDocument.timeTag).getTime(),
+                    metrics: [data.metric]
+                  }
+                )
+              } else {
+                let qos = 0,
+                  retain = false
+                if (!isNaN(change.fullDocument?.protocolSourceCommandDuration))
+                  qos = parseInt(
+                    change.fullDocument.protocolSourceCommandDuration
+                  )
+                if (
+                  typeof change.fullDocument?.protocolSourceCommandUseSBO ===
+                  'boolean'
+                )
+                  retain = change.fullDocument.protocolSourceCommandUseSBO
+                SparkplugClientObj.handle.client.publish(
+                  data.topic,
+                  data.value.toString(),
+                  { qos: qos, retain: retain }
+                )
+              }
+
+              // console.log(data)
+            })
+          } catch (e) {
+            Log.log('MongoDB - CS CMD Error: ' + e, Log.levelMin)
+          }
         }
       })
 
@@ -208,7 +403,7 @@ let AutoKeyId = 0
 // Get BIRTH payload for the edge node
 function getNodeBirthPayload (configObj) {
   const hwVersion = 'Generic Server Hardware'
-  const swVersion = 'JSON-SCADA MQTT v' + configObj?.VERSION
+  const swVersion = 'JSON-SCADA MQTT v' + AppDefs.VERSION
 
   return {
     timestamp: new Date().getTime(),
@@ -220,6 +415,11 @@ function getNodeBirthPayload (configObj) {
       },
       {
         name: 'Node Control/Reboot',
+        type: 'boolean',
+        value: false
+      },
+      {
+        name: 'Node Control/Next Server',
         type: 'boolean',
         value: false
       },
@@ -238,13 +438,17 @@ function getNodeBirthPayload (configObj) {
 }
 
 // Get BIRTH payload for the device
-async function getDeviceBirthPayload (rtCollection) {
+async function getDeviceBirthPayload (
+  rtCollection,
+  commandsEnabled,
+  connectionNumber,
+  jscadaConnection
+) {
   let res = await rtCollection
     .find(
       {
-        // protocolSourceConnectionNumber: ConnectionNumber,
-        // protocolSourceObjectAddress: data.tag
-        origin: { $ne: 'command' },
+        protocolSourceConnectionNumber: { $ne: connectionNumber }, // exclude data from the same connection
+        ...(commandsEnabled ? {} : { origin: { $ne: 'command' } }),
         _id: { $gt: 0 }
       },
       {
@@ -260,15 +464,26 @@ async function getDeviceBirthPayload (rtCollection) {
           invalid: 1,
           isEvent: 1,
           description: 1,
-          origin: 1
+          ungroupedDescription: 1,
+          group1: 1,
+          group2: 1,
+          group3: 1,
+          origin: 1,
+          protocolSourceConnectionNumber: 1
         }
       }
     )
     .toArray()
 
   let metrics = []
-  res.map(function (element) {
-    if (element.origin === 'command' || element._id < 1) {
+  res.forEach(element => {
+    if (element._id <= 0) {
+      // exclude internal system data
+      return
+    }
+
+    // avoid publishing what is acquired in this same connection
+    if (element.protocolSourceConnectionNumber === connectionNumber) {
       return
     }
 
@@ -295,17 +510,57 @@ async function getDeviceBirthPayload (rtCollection) {
     }
 
     let timestamp = false
-    let timestampQualityGood = false
+    let timestampGood = false
     if ('timeTagAtSource' in element && element.timeTagAtSource !== null) {
       timestamp = new Date(element.timeTagAtSource).getTime()
       if ('timeTagAtSourceOk' in element)
-        timestampQualityGood = element.timeTagAtSourceOk
+        timestampGood = element.timeTagAtSourceOk
     }
     //else if ("timeTag" in element && element.timeTag !== null){
-    //  timestamp = new Date(element.timeTag).getTime()
+    //  timestamp = (new Date(element.timeTag)).getTime()
     //} else {
-    //  timestamp = new Date().getTime()
+    //  timestamp = (new Date()).getTime()
     //}
+
+    let topic = {}
+    let topicAsTag = {}
+    if (
+      'publishTopicRoot' in jscadaConnection &&
+      jscadaConnection.publishTopicRoot.trim() !== ''
+    ) {
+      let topicName = jscadaConnection.publishTopicRoot.trim() + '/'
+
+      if (element.group1 && element.group1.trim() !== '')
+        topicName += topicStr(element.group1) + '/'
+      if (element.group2 && element.group2.trim() !== '')
+        topicName += topicStr(element.group2) + '/'
+      if (element.group3 && element.group3.trim() !== '')
+        topicName += topicStr(element.group3) + '/'
+      if (
+        element.ungroupedDescription &&
+        element.ungroupedDescription.trim() !== ''
+      )
+        topicName += topicStr(element.ungroupedDescription)
+      else topicName += topicStr(element.tag)
+      topic = {
+        topic: {
+          type: 'string',
+          value: topicName
+        }
+      }
+
+      topicName = jscadaConnection.publishTopicRoot.trim() + '/'
+      if (element.group1 && element.group1.trim() !== '')
+        topicName +=
+          AppDefs.TAGS_SUBTOPIC + '/' + topicStr(element.group1) + '/'
+      topicName += topicStr(element.tag) + '/value'
+      topicAsTag = {
+        topicAsTag: {
+          type: 'string',
+          value: topicName
+        }
+      }
+    }
 
     let metric = {
       name: element.tag,
@@ -313,20 +568,35 @@ async function getDeviceBirthPayload (rtCollection) {
       value: value,
       type: type,
       ...(timestamp === false ? {} : { timestamp: timestamp }),
-      
+
       properties: {
-        description: { type: "string", value: element.description },
-        qualityGood: { type: "boolean", value: (element.invalid ? false : true) },
+        ...topic,
+        ...topicAsTag,
+        ...(element.origin === 'command'
+          ? {
+              isCommand: {
+                type: 'boolean',
+                value: true
+              }
+            }
+          : {}),
+        description: { type: 'string', value: element.description },
+        good: {
+          type: 'boolean',
+          value: element.invalid ? false : true
+        },
         ...(timestamp === false
           ? {}
-          : { timestampQualityGood: { type: "boolean", value: timestampQualityGood } })
+          : {
+              timestampGood: {
+                type: 'boolean',
+                value: timestampGood
+              }
+            })
       }
-      
     }
     metrics.push(metric)
-    // Log.log(element)
-    // Log.log(ret)
-    return element
+    return
   })
 
   return {
@@ -335,8 +605,116 @@ async function getDeviceBirthPayload (rtCollection) {
   }
 }
 
+// Get command payload
+function getMetricCommandPayload (cmd) {
+  let value = null
+
+  if (
+    typeof cmd.protocolSourceASDU !== 'string' ||
+    cmd.protocolSourceASDU.trim() === ''
+  )
+    return null
+
+  // int, int8, int16, int32, int64, uint8, uint16, uint32, uint64, float, double, boolean, string, datetime
+  switch (cmd.protocolSourceASDU.toLowerCase()) {
+    case 'int8':
+      value = parseInt(cmd.value)
+      if (value > Math.pow(2, 8) - 1) value = Math.pow(2, 8) - 1
+      else if (value < Math.pow(2, 8)) value = Math.pow(2, 8)
+      break
+    case 'int16':
+      value = parseInt(cmd.value)
+      if (value > Math.pow(2, 16) - 1) value = Math.pow(2, 16) - 1
+      else if (value < Math.pow(2, 16)) value = Math.pow(2, 16)
+      break
+    case 'int32':
+      value = parseInt(cmd.value)
+      if (value > Math.pow(2, 32) - 1) value = Math.pow(2, 32) - 1
+      else if (value < Math.pow(2, 32)) value = Math.pow(2, 32)
+      break
+    case 'int':
+    case 'int64':
+      value = parseInt(cmd.value)
+      break
+    case 'uint8':
+      value = parseInt(cmd.value)
+      if (value > Math.pow(2, 8)) value = Math.pow(2, 8)
+      else if (value < 0) value = 0
+      break
+    case 'uint16':
+      value = parseInt(cmd.value)
+      if (value > Math.pow(2, 16)) value = Math.pow(2, 16)
+      else if (value < 0) value = 0
+      break
+    case 'uint32':
+      value = parseInt(cmd.value)
+      if (value > Math.pow(2, 32)) value = Math.pow(2, 32)
+      else if (value < 0) value = 0
+      break
+    case 'uint64':
+      value = parseInt(cmd.value)
+      if (value < 0) value = 0
+      break
+    case 'float':
+    case 'double':
+      value = parseFloat(cmd.value)
+      break
+    case 'boolean':
+      value = cmd.value !== 0
+      break
+    case 'text':
+    case 'string':
+      value = cmd?.valueString || cmd.value.toString()
+      break
+    case 'datetime':
+      value = parseInt(Math.abs(cmd.value))
+      if (value < 0) value = 0
+      break
+    default:
+      return null
+  }
+
+  const splTopic = cmd.protocolSourceObjectAddress.split('/')
+  if (splTopic.length === 0) return null
+
+  if (splTopic[0] === SparkplugNS) {
+    if (splTopic.length === 5) {
+      // DCMD
+      return {
+        groupId: splTopic[1],
+        edgeNodeId: splTopic[2],
+        deviceId: splTopic[3],
+        metric: {
+          name: splTopic[4],
+          value: value,
+          type: cmd.protocolSourceASDU.toLowerCase(),
+          timestamp: new Date().getTime()
+        }
+      }
+    } else if (splTopic.length === 4) {
+      // NCMD
+      return {
+        groupId: splTopic[1],
+        edgeNodeId: splTopic[2],
+        metric: {
+          name: splTopic[3],
+          value: value,
+          type: cmd.protocolSourceASDU.toLowerCase(),
+          timestamp: new Date().getTime()
+        }
+      }
+    }
+    return null
+  }
+
+  return {
+    topic: cmd.protocolSourceObjectAddress,
+    value: value
+  }
+}
+
 // Get data payload
-function getMetricPayload (element) {
+function getMetricPayload (element, jscadaConnection) {
   if (element.origin === 'command' || element._id < 1) {
     return null
   }
@@ -363,16 +741,55 @@ function getMetricPayload (element) {
   }
 
   let timestamp = false
-  let timestampQualityGood = false
+  let timestampGood = false
   if ('timeTagAtSource' in element && element.timeTagAtSource !== null) {
     timestamp = new Date(element.timeTagAtSource).getTime()
-    timestampQualityGood = element.timeTagAtSourceOk
+    timestampGood = element.timeTagAtSourceOk
   }
   //else if ("timeTag" in element && element.timeTag !== null){
-  //  timestamp = new Date(element.timeTag).getTime()
+  //  timestamp = (new Date(element.timeTag)).getTime()
   //} else {
-  //  timestamp = new Date().getTime()
+  //  timestamp = (new Date()).getTime()
   //}
+
+  let topic = {}
+  let topicAsTag = {}
+  if (
+    'publishTopicRoot' in jscadaConnection &&
+    jscadaConnection.publishTopicRoot.trim() !== ''
+  ) {
+    let topicName = jscadaConnection.publishTopicRoot.trim() + '/'
+
+    if (element.group1 && element.group1.trim() !== '')
+      topicName += topicStr(element.group1) + '/'
+    if (element.group2 && element.group2.trim() !== '')
+      topicName += topicStr(element.group2) + '/'
+    if (element.group3 && element.group3.trim() !== '')
+      topicName += topicStr(element.group3) + '/'
+    if (
+      element.ungroupedDescription &&
+      element.ungroupedDescription.trim() !== ''
+    )
+      topicName += topicStr(element.ungroupedDescription)
+    else topicName += topicStr(element.tag)
+    topic = {
+      topic: {
+        type: 'string',
+        value: topicName
+      }
+    }
+
+    topicName = jscadaConnection.publishTopicRoot.trim() + '/'
+    if (element.group1 && element.group1.trim() !== '')
+      topicName += AppDefs.TAGS_SUBTOPIC + '/' + topicStr(element.group1) + '/'
+    topicName += topicStr(element.tag) + '/value'
+    topicAsTag = {
+      topicAsTag: {
+        type: 'string',
+        value: topicName
+      }
+    }
+  }
 
   return {
     // name: element.tag,
@@ -381,10 +798,31 @@ function getMetricPayload (element) {
     type: type,
     ...(timestamp === false ? {} : { timestamp: timestamp }),
     properties: {
-      qualityGood: element.invalid ? false : true,
+      valueJson: {
+        type: 'string',
+        value: JSON.stringify(element?.valueJson || value).replace(
+          /^"(.*)"$/,
+          '$1'
+        )
+      },
+      valueString: {
+        type: 'string',
+        value: element.valueString || value.toString()
+      },
+      good: {
+        type: 'boolean',
+        value: element.invalid ? false : true
+      },
+      ...topic,
+      ...topicAsTag,
       ...(timestamp === false
         ? {}
-        : { timestampQualityGood: timestampQualityGood })
+        : {
+            timestampGood: {
+              type: 'boolean',
+              value: timestampGood
+            }
+          })
     }
   }
 }
@@ -393,7 +831,7 @@ function getMetricPayload (element) {
 async function getConnection (connsCollection, configObj) {
   let results = await connsCollection
     .find({
-      protocolDriver: configObj.APP_NAME,
+      protocolDriver: AppDefs.NAME,
       protocolDriverInstanceNumber: configObj.Instance
     })
     .toArray()
@@ -418,286 +856,15 @@ async function getConnection (connsCollection, configObj) {
   return connection
 }
 
-// find biggest point key (_id) on range and adjust automatic key
-async function getAutoKeyInitialValue (rtCollection, configObj) {
-  let autoKeyId = configObj.ConnectionNumber * configObj.AutoKeyMultiplier
-  let resLastKey = await rtCollection
-    .find({
-      _id: {
-        $gt: autoKeyId,
-        $lt: (configObj.ConnectionNumber + 1) * configObj.AutoKeyMultiplier
-      }
-    })
-    .sort({ _id: -1 })
-    .limit(1)
-    .toArray()
-  if (resLastKey.length > 0 && '_id' in resLastKey[0]) {
-    if (parseInt(resLastKey[0]._id) >= autoKeyId)
-      autoKeyId = parseInt(resLastKey[0]._id)
-  }
-  return autoKeyId
-}
-
-function rtData (measurement) {
-  AutoKeyId++
-
-  return {
-    _id: new mongo.Double(AutoKeyId),
-    protocolSourceASDU: '',
-    protocolSourceCommonAddress: '',
-    protocolSourceConnectionNumber: new mongo.Double(ConnectionNumber),
-    protocolSourceObjectAddress: measurement?.tag,
-    alarmState: new mongo.Double(-1.0),
-    description: measurement?.description,
-    ungroupedDescription: measurement?.ungroupedDescription,
-    group1: measurement?.group1,
-    group2: measurement?.group2,
-    group3: measurement?.group3,
-    stateTextFalse: '',
-    stateTextTrue: '',
-    eventTextFalse: '',
-    eventTextTrue: '',
-    origin: 'supervised',
-    tag: measurement.tag,
-    type:
-      typeof measurement.value === 'number' &&
-      !isNaN(parseFloat(measurement.value))
-        ? 'analog'
-        : 'string',
-    value: new mongo.Double(measurement.value),
-    valueString: measurement.value.toString(),
-    alarmDisabled: false,
-    alerted: false,
-    alarmed: false,
-    alertedState: '',
-    annotation: '',
-    commandBlocked: false,
-    commandOfSupervised: new mongo.Double(0.0),
-    commissioningRemarks: 'Auto created by Sparkplug B driver.',
-    formula: new mongo.Double(0.0),
-    frozen: false,
-    frozenDetectTimeout: new mongo.Double(0.0),
-    hiLimit: new mongo.Double(Number.MAX_VALUE),
-    hihiLimit: new mongo.Double(Number.MAX_VALUE),
-    hihihiLimit: new mongo.Double(Number.MAX_VALUE),
-    historianDeadBand: new mongo.Double(0.0),
-    historianPeriod: new mongo.Double(0.0),
-    hysteresis: new mongo.Double(0.0),
-    invalid: measurement?.invalidAtSource ? true : false,
-    invalidDetectTimeout: new mongo.Double(60000.0),
-    isEvent: false,
-    kconv1: new mongo.Double(1.0),
-    kconv2: new mongo.Double(0.0),
-    location: null,
-    loLimit: new mongo.Double(-Number.MAX_VALUE),
-    loloLimit: new mongo.Double(-Number.MAX_VALUE),
-    lololoLimit: new mongo.Double(-Number.MAX_VALUE),
-    notes: '',
-    overflow: false,
-    parcels: null,
-    priority: new mongo.Double(0.0),
-    protocolDestinations: null,
-    sourceDataUpdate: null,
-    supervisedOfCommand: new mongo.Double(0.0),
-    timeTag: null,
-    timeTagAlarm: null,
-    timeTagAtSource: measurement.timeTagAtSource,
-    timeTagAtSourceOk: false,
-    transient: false,
-    unit: '',
-    updatesCnt: new mongo.Double(0.0),
-    valueDefault: new mongo.Double(0.0),
-    zeroDeadband: new mongo.Double(0.0)
-  }
-}
-
-// process JSON-SCADA redundancy state for this driver module
-async function ProcessRedundancy (clientMongo, db, configObj) {
-  if (!clientMongo || !db) return
-
-  const countKeepAliveUpdatesLimit = 4
-
-  // poor man's local static variables
-  if (typeof ProcessRedundancy.countKeepAliveNotUpdated === 'undefined') {
-    ProcessRedundancy.lastActiveNodeKeepAliveTimeTag = null
-    ProcessRedundancy.countKeepAliveNotUpdated = 0
-  }
-
-  Log.log(
-    'Redundancy - Process ' + (configObj.ProcessActive ? 'Active' : 'Inactive')
-  )
-
-  // look for process instance entry, if not found create a new entry
-  db.collection(configObj.ProtocolDriverInstancesCollectionName)
-    .find({
-      protocolDriver: configObj.APP_NAME,
-      protocolDriverInstanceNumber: configObj.Instance
-    })
-    .toArray(function (err, results) {
-      if (err) Log.log('MongoDB - ' + err)
-      else if (results) {
-        if (results.length === 0) {
-          // not found, then create
-          configObj.ProcessActive = true
-          Log.log('Redundancy - Instance config not found, creating one...')
-          db.collection(
-            configObj.ProtocolDriverInstancesCollectionName
-          ).insertOne({
-            protocolDriver: configObj.APP_NAME,
-            protocolDriverInstanceNumber: new mongo.Double(1),
-            enabled: true,
-            logLevel: new mongo.Double(1),
-            nodeNames: [],
-            activeNodeName: configObj.nodeName,
-            activeNodeKeepAliveTimeTag: new Date()
-          })
-        } else {
-          // check for disabled or node not allowed
-          let instance = results[0]
-
-          let instKeepAliveTimeTag = null
-
-          if ('activeNodeKeepAliveTimeTag' in instance)
-            instKeepAliveTimeTag = instance.activeNodeKeepAliveTimeTag.toISOString()
-
-          if (instance?.enabled === false) {
-            Log.log('Redundancy - Instance disabled, exiting...')
-            process.exit()
-          }
-          if (instance?.nodeNames !== null && instance.nodeNames.length > 0) {
-            if (!instance.nodeNames.includes(configObj.nodeName)) {
-              Log.log('Redundancy - Node name not allowed, exiting...')
-              process.exit()
-            }
-          }
-          if (instance?.activeNodeName === configObj.nodeName) {
-            if (!configObj.ProcessActive)
-              Log.log('Redundancy - Node activated!')
-            ProcessRedundancy.countKeepAliveNotUpdated = 0
-            configObj.ProcessActive = true
-          } else {
-            // other node active
-            if (configObj.ProcessActive) {
-              Log.log('Redundancy - Node deactivated!')
-              ProcessRedundancy.countKeepAliveNotUpdated = 0
-            }
-            configObj.ProcessActive = false
-            if (
-              ProcessRedundancy.lastActiveNodeKeepAliveTimeTag ===
-              instKeepAliveTimeTag
-            ) {
-              ProcessRedundancy.countKeepAliveNotUpdated++
-              Log.log(
-                'Redundancy - Keep-alive from active node not updated. ' +
-                  ProcessRedundancy.countKeepAliveNotUpdated
-              )
-            } else {
-              ProcessRedundancy.countKeepAliveNotUpdated = 0
-              Log.log(
-                'Redundancy - Keep-alive updated by active node. Staying inactive.'
-              )
-            }
-            ProcessRedundancy.lastActiveNodeKeepAliveTimeTag = instKeepAliveTimeTag
-            if (
-              ProcessRedundancy.countKeepAliveNotUpdated >
-              countKeepAliveUpdatesLimit
-            ) {
-              // cnt exceeded, be active
-              ProcessRedundancy.countKeepAliveNotUpdated = 0
-              Log.log('Redundancy - Node activated!')
-              configObj.ProcessActive = true
-            }
-          }
-
-          if (configObj.ProcessActive) {
-            // process active, then update keep alive
-            db.collection(
-              configObj.ProtocolDriverInstancesCollectionName
-            ).updateOne(
-              {
-                protocolDriver: configObj.APP_NAME,
-                protocolDriverInstanceNumber: new mongo.Double(
-                  configObj.Instance
-                )
-              },
-              {
-                $set: {
-                  activeNodeName: configObj.nodeName,
-                  activeNodeKeepAliveTimeTag: new Date(),
-                  softwareVersion: configObj.VERSION,
-                  stats: {}
-                }
-              }
-            )
-          }
-        }
-      }
-    })
-}
-
-// load and parse config file
-function loadConfig () {
-  const args = process.argv.slice(2)
-
-  var logLevelArg = null
-  if (args.length > 1) logLevelArg = parseInt(args[1])
-  Log.levelCurrent =
-    logLevelArg || process.env.JS_MQTTSPB_LISTENER_LOGLEVEL || 1
-
-  var confFileArg = null
-  if (args.length > 2) confFileArg = args[2]
-
-  let configFile =
-    confFileArg || process.env.JS_CONFIG_FILE || '../../conf/json-scada.json'
-  Log.log('Config - Config File: ' + configFile)
-
-  if (!fs.existsSync(configFile)) {
-    Log.log('Config - Error: config file not found!')
-    process.exit()
-  }
-
-  let rawFileContents = fs.readFileSync(configFile)
-  let configObj = JSON.parse(rawFileContents)
-  if (
-    typeof configObj.mongoConnectionString != 'string' ||
-    configObj.mongoConnectionString === ''
-  ) {
-    Log.log('Error reading config file.')
-    process.exit()
-  }
-
-  var instArg = null
-  if (args.length > 0) instArg = parseInt(args[0])
-  configObj.Instance = instArg || process.env.JS_MQTTSPB_LISTENER_INSTANCE || 1
-
-  configObj.APP_NAME = 'MQTT-SPARKPLUG-B'
-  configObj.APP_MSG = '{json:scada} - MQTT-Sparkplug-B Client Driver'
-  configObj.VERSION = '0.1.1'
-
-  configObj.RealtimeDataCollectionName = 'realtimeData'
-  configObj.ProtocolDriverInstancesCollectionName = 'protocolDriverInstances'
-  configObj.ProtocolConnectionsCollectionName = 'protocolConnections'
-  configObj.grpSep = '~'
-  configObj.ProcessActive = false // for redundancy control
-  configObj.AutoKeyMultiplier = 100000 // should be more than estimated maximum points on a connection
-  configObj.ConnectionNumber = 0
-
-  Log.log('Config - ' + configObj.APP_MSG + ' Version ' + configObj.VERSION)
-  Log.log('Config - Instance: ' + configObj.Instance)
-  Log.log('Config - Log level: ' + Log.levelCurrent)
-
-  return configObj
-}
-
 // prepare mongo connection options
 function getMongoConnectionOptions (configObj) {
   let connOptions = {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     appname:
-      configObj.APP_NAME +
+      AppDefs.NAME +
       ' Version:' +
-      configObj.VERSION +
+      AppDefs.VERSION +
       ' Instance:' +
       configObj.Instance,
     poolSize: 20,
@@ -726,70 +893,49 @@ function getMongoConnectionOptions (configObj) {
 }
 
 // update queued data to mongodb
-let ListCreatedTags = []
 async function processMongoUpdates (clientMongo, collection, jsConfig) {
   let cnt = 0
   if (clientMongo && collection)
     while (!ValuesQueue.isEmpty()) {
       let data = ValuesQueue.peek()
-      // const db = clientMongo.db(jsConfig.mongoDatabaseName)
+      ValuesQueue.dequeue()
 
-      // if not sure tag is created, try to find, if not found create it
-      if (AutoCreateTags)
-        if (!ListCreatedTags.includes(data.tag)) {
-          // possibly not created tag, must check
-          let res = await collection
-            .find({
-              protocolSourceConnectionNumber: jsConfig.ConnectionNumber,
-              protocolSourceObjectAddress: data.tag
-            })
-            .toArray()
+      // console.log(data)
 
-          if ('length' in res && res.length === 0) {
-            // not found, then create
-            let newTag = rtData(data)
-            Log.log(
-              'Auto Key - Tag not found, will create: ' + data.tag,
-              Log.levelDetailed
-            )
-            let resIns = await collection.insertOne(newTag)
-            if (resIns.insertedCount === 1) ListCreatedTags.push(data.tag)
-          } else {
-            // found (already exists, no need to create), just list as created
-            ListCreatedTags.push(data.tag)
-          }
-        }
+      // check tag is created, if not found create it
+      if (AutoCreateTags) {
+        let topicSplit = data.protocolSourceObjectAddress.split('/')
+        if (topicSplit.length > 0) data.group2 = topicSplit[0]
+        if (topicSplit.length > 1 && topicSplit[0] === SparkplugNS)
+          data.group2 = topicSplit[1]
+        await AutoTag.AutoCreateTag(data, jsConfig.ConnectionNumber, collection)
+      }
 
       // now update tag
-
-      // try to parse value as JSON
-      let valueJson = null
-      try {
-        valueJson = JSON.parse(data.value)
-      } catch (e) {}
 
       Log.log(
         'Data Update - ' +
           data.timeTagAtSource +
           ' : ' +
-          data.tag +
+          data.protocolSourceObjectAddress +
           ' : ' +
           data.value,
         Log.levelDetailed
       )
 
       let updTag = {
-        valueAtSource: parseFloat(data.value),
-        valueStringAtSource: data.value.toString(),
-        valueJsonAtSource: valueJson,
-        asduAtSource: '',
-        causeOfTransmissionAtSource: '3',
+        valueAtSource: new Mongo.Double(parseFloat(data.value)),
+        valueStringAtSource: data.valueString,
+        valueJsonAtSource: data?.valueJson,
+        asduAtSource: data?.asduAtSource,
+        causeOfTransmissionAtSource: data?.causeOfTransmissionAtSource,
         timeTagAtSource: data.timeTagAtSource,
-        timeTagAtSourceOk: false, // signal that it is not really from field time
+        timeTagAtSourceOk: data.timeTagAtSourceOk,
         timeTag: new Date(),
-        originator: jsConfig.APP_NAME + '|' + jsConfig.ConnectionNumber,
+        originator: AppDefs.NAME + '|' + jsConfig.ConnectionNumber,
+        invalidAtSource: data.invalid,
+        transientAtSource: false,
         notTopicalAtSource: false,
-        invalidAtSource: data.invalidAtSource,
         overflowAtSource: false,
         blockedAtSource: false,
         substitutedAtSource: false
@@ -797,12 +943,11 @@ async function processMongoUpdates (clientMongo, collection, jsConfig) {
       collection.updateOne(
         {
           protocolSourceConnectionNumber: jsConfig.ConnectionNumber,
-          protocolSourceObjectAddress: data.tag
+          protocolSourceObjectAddress: data.protocolSourceObjectAddress
         },
         { $set: { sourceDataUpdate: updTag } }
       )
 
-      ValuesQueue.dequeue()
       cnt++
     }
   if (cnt) Log.log('MongoDB - Updates: ' + cnt)
@@ -847,14 +992,17 @@ function getSparkplugConfig (connection) {
   }
 
   return {
+    clean: AppDefs.MQTT_CLEAN_SESSION,
+    keepalive: AppDefs.MQTT_CONNECTION_KEEPALIVE,
+    connectionTimeout: AppDefs.MQTT_CONNECTION_TIMEOUT,
     serverUrl: connection.endpointURLs[0],
-    username: connection.username,
-    password: connection.password,
-    groupId: connection.groupId,
-    edgeNode: connection.edgeNodeId,
-    clientId: 'JSON-SCADA',
-    version: 'spBv1.0',
-    scadaHostId: connection.scadaHostId, // only if a primary application
+    username: connection?.username || '',
+    password: connection?.password || '',
+    groupId: connection?.groupId || '',
+    edgeNode: connection?.edgeNodeId || '',
+    clientId: connection?.clientId || '',
+    version: SparkplugNS,
+    scadaHostId: connection?.scadaHostId || '', // only if a primary application
     ...secOpts
   }
 }
@@ -866,8 +1014,14 @@ async function sparkplugProcess (
   configObj,
   mongoClient
 ) {
-  if (jscadaConnection === null || mongoClient === null) return
+  sparkplugProcess.mongoClient = mongoClient
+
+  if (jscadaConnection === null || mongoClient === null) {
+    sparkplugProcess.db = null
+    return
+  }
   const logMod = 'MQTT Client - '
+  const logModS = 'Sparkplug - '
   const connectionRetriesLimit = 20
 
   // poor man's local static variables
@@ -875,39 +1029,42 @@ async function sparkplugProcess (
     sparkplugProcess.currentBroker = 0
     sparkplugProcess.connectionRetries = 0
     sparkplugProcess.deviceBirthPayload = null
+    sparkplugProcess.db = null
   }
 
+  if (sparkplugProcess.db === null)
+    sparkplugProcess.db = mongoClient.db(configObj.mongoDatabaseName)
+
   if (spClient.handle === null) {
-    if (!configObj.ProcessActive)
+    if (!Redundancy.ProcessStateIsActive())
       // do not connect MQTT while process not active
       return
 
     try {
-      // obtain device birth payload
-      const db = mongoClient.db(configObj.mongoDatabaseName)
-      sparkplugProcess.deviceBirthPayload = await getDeviceBirthPayload(
-        db.collection(configObj.RealtimeDataCollectionName)
-      )
-      // Log.log(sparkplugProcess.deviceBirthPayload, Log.levelDebug)
-
       // Create the SparkplugClient
       Log.log(logMod + 'Creating client...')
-      let config = getSparkplugConfig(jscadaConnection)
+      let config
+      try {
+        config = getSparkplugConfig(jscadaConnection)
+      } catch (e) {
+        Log.log(logMod + 'Parameter error. ' + e.message)
+        process.exit(1)
+      }
 
       config.serverUrl =
         jscadaConnection.endpointURLs[sparkplugProcess.currentBroker]
       Log.log(logMod + 'Try connecting to ' + config.serverUrl)
 
-      // default subscription to all topics from Sparkplug-B
-      if (
-        !('topics' in jscadaConnection) ||
-        jscadaConnection.topics.length === 0
-      ) {
-        jscadaConnection.topics = ['spBv1.0/#']
-      }
+      //// default subscription to all topics from Sparkplug-B
+      //if (
+      //  !('topics' in jscadaConnection) ||
+      //  jscadaConnection.topics.length === 0
+      //) {
+      //  jscadaConnection.topics = [SparkplugNS + '/#']
+      //}
 
       if (
-        !'deviceId' in jscadaConnection ||
+        !('deviceId' in jscadaConnection) ||
         jscadaConnection.deviceId.trim() === ''
       ) {
         jscadaConnection.deviceId = 'Primary Application'
@@ -923,54 +1080,103 @@ async function sparkplugProcess (
       })
 
       spClient.handle.on('close', function () {
+        SparkplugDeviceBirthed = false
         Log.log(logMod + 'Event: Connection Closed')
       })
 
       spClient.handle.on('offline', function () {
+        SparkplugDeviceBirthed = false
         Log.log(logMod + 'Event: Connection Offline...')
       })
 
       // Create 'birth' handler
-      spClient.handle.on('birth', function () {
-        // Publish SCADA HOST BIRTH certificate
-        spClient.handle.publishScadaHostBirth()
+      spClient.handle.on('birth', async function () {
+        if (
+          !('groupId' in jscadaConnection) ||
+          jscadaConnection.groupId.trim() === ''
+        )
+          return
+
+        SparkplugPublishQueue.clear() // clear old data
+        MqttPublishQueue.clear() // clear old data
+
+        // Publish SCADA HOST BIRTH certificate (7.5.1)
+        if (
+          jscadaConnection.scadaHostId &&
+          jscadaConnection.scadaHostId.trim() !== ''
+        ) {
+          spClient.handle.publishScadaHostBirth()
+          Log.log(logMod + 'Publish SCADA Host Birth')
+        }
+
         // Publish Node BIRTH certificate
-        spClient.handle.publishNodeBirth(getNodeBirthPayload(configObj))
+        let nbc = getNodeBirthPayload(configObj)
+        spClient.handle.publishNodeBirth(nbc, {
+          compress: AppDefs.SPARKPLUG_COMPRESS_NBIRTH
+        })
+        Log.log(
+          logMod + 'Publish node birth with ' + nbc.metrics.length + ' metrics'
+        )
+
+        // obtain device birth payload
+        sparkplugProcess.deviceBirthPayload = await getDeviceBirthPayload(
+          sparkplugProcess.db.collection(configObj.RealtimeDataCollectionName),
+          jscadaConnection.commandsEnabled,
+          jscadaConnection.protocolConnectionNumber,
+          jscadaConnection
+        )
+        Log.log(
+          logMod +
+            'Publish device birth "' +
+            jscadaConnection.deviceId +
+            '" with ' +
+            sparkplugProcess.deviceBirthPayload.metrics.length +
+            ' metrics'
+        )
 
         // Publish Device BIRTH certificate
         spClient.handle.publishDeviceBirth(
           jscadaConnection.deviceId,
-          sparkplugProcess.deviceBirthPayload
+          sparkplugProcess.deviceBirthPayload,
+          { compress: AppDefs.SPARKPLUG_COMPRESS_DBIRTH }
         )
+        SparkplugDeviceBirthed = true
+        sparkplugProcess.deviceBirthPayload.metrics.forEach(elem => {
+          SparkplugPublishQueue.enqueue(elem)
+        })
       })
 
       spClient.handle.on('connect', function () {
         sparkplugProcess.connectionRetries = 0
         Log.log(logMod + 'Event: Connected to broker')
         // Subscribe topics
-        jscadaConnection.topics.forEach(elem => {
-          Log.log(logMod + 'Subscribing topic: ' + elem)
+        jscadaConnection.topics
+          .concat(jscadaConnection.topicsAsFiles)
+          .forEach(elem => {
+            let topicStr = JsonPathTopic(elem).topic
 
-          spClient.handle.client.subscribe(elem, {
-            qos: 1,
-            properties: { subscriptionIdentifier: 1 },
-            function (err, granted) {
-              if (err)
-                Log.log(
-                  logMod + 'Subscribe error on topic: ' + elem + ' : ' + err
-                )
-              if (granted)
-                Log.log(
-                  logMod +
-                    'Subscription granted for topic: ' +
-                    elem +
-                    ' : ' +
-                    granted
-                )
-              return
-            }
+            Log.log(logMod + 'Subscribing topic: ' + topicStr)
+
+            spClient.handle.client.subscribe(topicStr, {
+              qos: 1,
+              properties: { subscriptionIdentifier: 1 },
+              function (err, granted) {
+                if (err)
+                  Log.log(
+                    logMod + 'Subscribe error on topic: ' + elem + ' : ' + err
+                  )
+                if (granted)
+                  Log.log(
+                    logMod +
+                      'Subscription granted for topic: ' +
+                      elem +
+                      ' : ' +
+                      granted
+                  )
+                return
+              }
+            })
           })
-        })
       })
 
       spClient.handle.on('reconnect', function () {
@@ -996,27 +1202,410 @@ async function sparkplugProcess (
         }
       })
 
-      // process MQTT messages
+      // test for topic matches subscription
+      const topicMatchSub = t => s =>
+        new RegExp(s.split`+`.join`[^/]+`.split`#`.join`.+`).test(t)
+
+      // A VM to run scripts to extract complex payloads
+      let sharedObj = {}
+      const sandbox = {
+        shared: sharedObj
+      }
+      const vm = new VM({ sandbox })
+
+      // process non sparkplug b messages
+      spClient.handle.on('nonSparkplugMessage', async function (
+        topic,
+        payload,
+        packet
+      ) {
+        Log.log(
+          logMod +
+            'Event: Regular MQTT message, topic: ' +
+            topic +
+            ' size: ' +
+            payload.length
+        )
+
+        let match = false
+        // check for match of some topic subscription to be saved as files
+        if (jscadaConnection?.topicsAsFiles instanceof Array)
+          await jscadaConnection.topicsAsFiles.forEach(async tp => {
+            if (topicMatchSub(topic)(tp)) {
+              Log.log(logMod + 'Received topic as file ' + topic)
+              match = true
+              try {
+                // save as file on Mongodb Gridfs
+                let gfs = new Mongo.GridFSBucket(sparkplugProcess.db)
+
+                // delete older files with same name
+                let f = await gfs.find({ filename: topic }).toArray()
+                f.forEach(async elem => {
+                  await gfs.delete(elem._id)
+                })
+
+                let writestream = gfs.openUploadStream(topic)
+                Streamifier.createReadStream(payload).pipe(writestream)
+              } catch (e) {
+                Log.log(logMod + 'Error saving file. ' + e.message)
+              }
+              return
+            }
+          })
+
+        if (match) return
+
+        if (jscadaConnection?.topicsScripted instanceof Array)
+          jscadaConnection.topicsScripted.forEach(elem => {
+            if (elem.topic)
+              if (topicMatchSub(topic)(elem.topic)) {
+                match = true
+
+                /*
+              "topicsScripted": [{ 
+                 "topic": "C3ET/test/jsonarr", 
+                 "script": " // remove comments and put all in the same line
+                            shared.dataArray = []; // array of objects to return
+                            vals=JSON.parse(shared.payload.toString()); 
+                            cnt = 1;
+                            vals.forEach(elem => {
+                              shared.dataArray.push({'id': 'scrVal'+cnt, 'value': elem, 'qualityOk': true, 'timestamp': (new Date()).getTime() });
+                              cnt++;
+                            })
+                            ret; // return values in array of objects
+                           "
+                  }]
+              */
+
+                if (elem.script) {
+                  // make payload (buffer) available inside VM (as info.payload)
+                  sharedObj.payload = payload
+                  sharedObj.dataArray = []
+
+                  try {
+                    // execute script and queue extracted values
+                    vm.run(elem.script)
+
+                    if (sharedObj?.dataArray instanceof Array)
+                      sharedObj.dataArray.forEach(element => {
+                        if (!element.id || !('value' in element)) return
+                        let type = 'analog'
+                        if (element.type) type = element.type
+                        ValuesQueue.enqueue({
+                          protocolSourceObjectAddress: topic + '/' + element.id,
+                          value: element.value,
+                          valueString: element.valueString
+                            ? element.valueString
+                            : element.value.toString(),
+                          valueJson: element.valueJson
+                            ? element.valueJson
+                            : element.value,
+                          invalid: element.qualityOk === false ? true : false,
+                          transient: element.transient === true ? true : false,
+                          causeOfTransmissionAtSource:
+                            'causeOfTransmissionAtSource' in element
+                              ? element.causeOfTransmissionAtSource
+                              : '3',
+                          timeTagAtSource: element.timestamp
+                            ? new Date(element.timestamp)
+                            : new Date(),
+                          timeTagAtSourceOk: element.timestamp ? true : false,
+                          asduAtSource: 'scripted',
+                          type: type
+                        })
+                      })
+                  } catch (e) {
+                    Log.log(
+                      logMod +
+                        'Error on script on topic ' +
+                        topic +
+                        ' - ' +
+                        e.message
+                    )
+                  }
+                }
+                return
+              }
+          })
+
+        if (match) return
+
+        if (jscadaConnection?.topics instanceof Array)
+          jscadaConnection.topics.forEach(elem => {
+            if (elem) {
+              let jpt = JsonPathTopic(elem)
+              if (jpt.jsonPath !== '' && topicMatchSub(topic)(jpt.topic)) {
+                // extract value from payload using JSON PATH
+                let JsonPayload = TryPayloadAsRJson(payload)
+                const jpRes = JSONPath({
+                  path: jpt.jsonPath,
+                  json: JsonPayload,
+                  wrap: false
+                })
+                EnqueueJsonValue(jpRes, elem)
+                match = true
+              }
+            }
+          })
+
+        if (match) return
+
+        // try to detect payload as JSON or RJSON
+
+        if (payload.length > 10000) {
+          Log.log(logMod + 'Payload too big!')
+          return
+        }
+
+        let JsonValue = TryPayloadAsRJson(payload)
+        EnqueueJsonValue(JsonValue, topic)
+      })
+
+      // process received node commands (for this node)
+      spClient.handle.on('ncmd', function (payload) {
+        Log.log(
+          logModS + 'Received NCMD - ' + JSON.stringify(payload),
+          Log.levelDetailed
+        )
+        if (payload?.metrics instanceof Array) {
+          payload.metrics.forEach(async metric => {
+            switch (metric?.name) {
+              case 'Node Control/Rebirth':
+                if (
+                  !('groupId' in jscadaConnection) ||
+                  jscadaConnection.groupId.trim() === ''
+                )
+                  return
+                if (metric?.value === true) {
+                  Log.log(logModS + 'Node Rebirth command received')
+                  // Publish Node BIRTH certificate
+                  let nbc = getNodeBirthPayload(configObj)
+                  spClient.handle.publishNodeBirth(nbc, {
+                    compress: AppDefs.SPARKPLUG_COMPRESS_NBIRTH
+                  })
+                  Log.log(
+                    logMod +
+                      'Publish node birth with ' +
+                      nbc.metrics.length +
+                      ' metrics'
+                  )
+                  // Publish Device BIRTH certificate
+                  let dbc = await getDeviceBirthPayload(
+                    sparkplugProcess.db.collection(
+                      configObj.RealtimeDataCollectionName
+                    ),
+                    jscadaConnection.commandsEnabled,
+                    jscadaConnection.protocolConnectionNumber,
+                    jscadaConnection
+                  )
+                  Log.log(
+                    logMod +
+                      'Publish device Birth "' +
+                      jscadaConnection.deviceId +
+                      '" with ' +
+                      sparkplugProcess.deviceBirthPayload.metrics.length +
+                      ' metrics'
+                  )
+                  spClient.handle.publishDeviceBirth(
+                    jscadaConnection.deviceId,
+                    dbc,
+                    { compress: AppDefs.SPARKPLUG_COMPRESS_DBIRTH }
+                  )
+                }
+                break
+              case 'Node Control/Reboot':
+                // only accept Reboot command if not a primary application
+                // if (!jscadaConnection.scadaHostId || jscadaConnection.scadaHostId == '')
+                {
+                  Log.log(
+                    logModS + 'Node Reboot command received, exiting process...'
+                  )
+                  process.exit(999)
+                }
+                break
+              case 'Node Control/Next Server':
+                // only accept Next Server command if not a primary application
+                //if (!jscadaConnection.scadaHostId || jscadaConnection.scadaHostId == '')
+                {
+                  Log.log(logMod + 'Node command Next Server received')
+                  if (jscadaConnection.endpointURLs.length > 1) {
+                    sparkplugProcess.currentBroker =
+                      (sparkplugProcess.currentBroker + 1) %
+                      jscadaConnection.endpointURLs.length
+                    Log.log(
+                      logMod +
+                        'Will try to connect to server ' +
+                        jscadaConnection.endpointURLs[
+                          sparkplugProcess.currentBroker
+                        ]
+                    )
+                    // stop and destroy current client
+                    spClient.handle.stop()
+                    spClient.handle = null
+                    sparkplugProcess.connectionRetries = 0
+                  } else Log.log(logMod + 'No alternatives servers configured!')
+                }
+                break
+            }
+          })
+        }
+      })
+
+      // process received device commands (for this device)
+      spClient.handle.on('dcmd', function (deviceId, payload) {
+        if (!jscadaConnection.commandsEnabled) return
+        Log.log(
+          logModS +
+            'Received DCMD - ' +
+            deviceId +
+            ' - ' +
+            JSON.stringify(payload),
+          Log.levelDetailed
+        )
+        // ignore command if mongo disconnected
+        if (sparkplugProcess.mongoClient === null) return
+        // process each metric on DCMD payload
+        if (payload?.metrics instanceof Array) {
+          payload.metrics.forEach(metric => {
+            ProcessDeviceCommand(
+              deviceId,
+              metric,
+              payload?.timestamp,
+              sparkplugProcess.mongoClient,
+              jscadaConnection,
+              configObj
+            )
+          })
+        }
+      })
+
+      // process MQTT Sparkplug B messages (coming from other devices)
       spClient.handle.on('message', function (topic, payload, topicInfo) {
-        Log.log(logMod + 'Event: message')
-        Log.log(logMod + topic)
-        // Log.log(topicInfo);
-        Log.log(logMod + payload)
+        Log.log(logModS + 'Event: Sparkplug B message on topic: ' + topic)
+
+        if (Log.logLevelCurrent >= Log.levelDetailed) {
+          //Log.log(logModS + JSON.stringify(topicInfo), Log.levelDetailed)
+          Log.log(logModS + JSON.stringify(payload), Log.levelDetailed)
+        }
+
+        let splTopic = topic.split('/')
+        if (splTopic.length < 4) {
+          // invalid topic
+          Log.log(logModS + 'Invalid topic')
+        }
+        let deviceLocator = splTopic[0] + '/' + splTopic[1] + '/' + splTopic[3]
+        if (splTopic.length > 4) deviceLocator += '/' + splTopic[4]
+
+        if (splTopic.length)
+          switch (splTopic[2]) {
+            case 'NCMD': // commands for other nodes
+              break
+            case 'DCMD': // commands for other devices
+              break
+            case 'NDATA':
+              // edge of node data (7.2)
+              break
+            case 'DDATA':
+              // device data, update metrics (7.4)
+              Log.log(
+                logModS + 'Device DATA: ' + deviceLocator,
+                Log.levelDetailed
+              )
+
+              // data from not birthed device?
+              if (
+                !(deviceLocator in DevicesList) ||
+                !DevicesList[deviceLocator].birthed
+              ) {
+                Log.log(
+                  logModS + 'Data from not yet birthed device: ' + deviceLocator
+                )
+                Log.log(logModS + 'Requesting node rebirth...')
+                spClient.handle.publishNodeCmd(
+                  topicInfo.groupId,
+                  topicInfo.edgeNodeId,
+                  {
+                    timestamp: new Date().getTime(),
+                    metrics: [
+                      {
+                        name: 'Node Control/Rebirth',
+                        timestamp: new Date().getTime(),
+                        type: 'Boolean',
+                        value: true
+                      }
+                    ]
+                  }
+                )
+                return
+              }
+              // console.log(payload)
+              ProcessDeviceBirthOrData(deviceLocator, payload, false)
+              break
+            case 'NBIRTH':
+              // on node birth all associated data is invalidated (7.1.2)
+              Log.log(logModS + 'Node BIRTH', Log.levelDetailed)
+              if (sparkplugProcess.mongoClient)
+                InvalidateDeviceTags(
+                  deviceLocator,
+                  sparkplugProcess.mongoClient,
+                  jscadaConnection,
+                  configObj
+                )
+              break
+            case 'DBIRTH':
+              // device birth, create tags and update metrics (7.3.1)
+              Log.log(
+                logModS + 'Device BIRTH: ' + deviceLocator,
+                Log.levelDetailed
+              )
+              ProcessDeviceBirthOrData(deviceLocator, payload, true)
+              break
+            case 'NDEATH':
+              // Node death, invalidate all Sparkplug metrics from this node (7.1.1)
+              Log.log(logModS + 'Node DEATH', Log.levelDetailed)
+              // devices from this node marked as dead
+              DevicesList.forEach(function (element, key) {
+                if (key.indexOf(deviceLocator) === 0)
+                  DevicesList[key].birthed = false
+              })
+              if (sparkplugProcess.mongoClient)
+                InvalidateDeviceTags(
+                  deviceLocator,
+                  sparkplugProcess.mongoClient,
+                  jscadaConnection,
+                  configObj
+                )
+              break
+            case 'DDEATH':
+              // Node death, invalidate all Sparkplug metrics from this device (7.3.2)
+              Log.log(logModS + 'Device DEATH', Log.levelDetailed)
+              if (deviceLocator in DevicesList)
+                DevicesList[deviceLocator].birthed = false
+              if (sparkplugProcess.mongoClient)
+                InvalidateDeviceTags(
+                  deviceLocator,
+                  sparkplugProcess.mongoClient,
+                  jscadaConnection,
+                  configObj
+                )
+              break
+          }
       })
     } catch (e) {
-      Log.log(logMod + 'Error: ' + e.message, Log.levelMin)
+      Log.log(logModS + 'Error: ' + e.message, Log.levelMin)
     }
   } else {
     // MQTT client is already created
 
-    if (configObj.ProcessActive) {
+    if (Redundancy.ProcessStateIsActive()) {
       // test connection is established
 
       Log.log(
         logMod +
           (spClient.handle.connected
             ? 'Currently Connected'
-            : 'Currently Disconnected')
+            : 'Currently Disconnected'),
+        Log.levelDetailed
       )
       if (spClient.handle.connected) {
         sparkplugProcess.connectionRetries = 0
@@ -1028,6 +1617,536 @@ async function sparkplugProcess (
       spClient.handle = null
     }
   }
+}
 
-  return
+function ProcessDeviceBirthOrData (deviceLocator, payload, isBirth) {
+  if (!('metrics' in payload)) return
+
+  if (isBirth) {
+    Log.log('Sparkplug - New device: ' + deviceLocator)
+    DevicesList[deviceLocator] = {
+      birthed: true,
+      mapAliasToObjectAddress: [],
+      metrics: payload.metrics
+    }
+  }
+
+  // extract metrics info and queue for tags updates on mongodb
+  payload.metrics.forEach(metric => {
+    queueMetric(metric, deviceLocator, isBirth)
+  })
+}
+
+// obtain information from sparkplug-b decoded payload and queue for mongo tag updates
+function queueMetric (metric, deviceLocator, isBirth, templateName) {
+  if (metric?.isHistorical === true) return // when historical, discard
+  if (metric?.isTransient === true) return // when transient, discard
+
+  let value = 0,
+    valueString = '',
+    valueJson = {},
+    type = 'digital',
+    invalid = false,
+    isNull = false,
+    timestamp,
+    timestampGood = true,
+    catalogProperties = {},
+    objectAddress = null
+
+  //if (typeof queueMetric.MapAliasToObjectAddress === 'undefined')
+  //  queueMetric.MapAliasToObjectAddress = []
+
+  if ('name' in metric && metric.name.trim() !== '') {
+    // when metric is from a template, add template name to object address
+    if (templateName && templateName.trim() !== '')
+      objectAddress =
+        deviceLocator + '/' + topicStr(templateName) + '/' + metric.name
+    else objectAddress = deviceLocator + '/' + topicStr(metric.name)
+
+    // map alias to object address for later query
+    if ('alias' in metric) {
+      let alias =
+        (metric.alias.low >>> 0) + (metric.alias.high >>> 0) * Math.pow(2, 32)
+      let device = DevicesList[deviceLocator]
+      if (!device) {
+        // device not yet included
+        return
+      }
+      device.mapAliasToObjectAddress['a' + alias.toString()] = objectAddress
+    }
+  } else if ('alias' in metric) {
+    let alias =
+      (metric.alias.low >>> 0) + (metric.alias.high >>> 0) * Math.pow(2, 32)
+    let device = DevicesList[deviceLocator]
+    if (device)
+      objectAddress =
+        DevicesList[deviceLocator].mapAliasToObjectAddress[
+          'a' + alias.toString()
+        ]
+    if (!objectAddress) {
+      // alias not mapped
+      Log.log(
+        'Sparkplug - Unmapped metric alias=' +
+          alias +
+          ' device=' +
+          deviceLocator,
+        Log.levelDetailed
+      )
+      return false
+    }
+  } else {
+    Log.log(
+      'Sparkplug - Invalid metric (missing name and alias)!',
+      Log.levelDetailed
+    )
+    return false
+  }
+
+  if ('timestamp' in metric) {
+    timestamp = metric.timestamp
+  } else {
+    timestamp = new Date().getTime()
+    timestampGood = false
+  }
+
+  if (
+    metric?.value === null ||
+    metric?.isNull === true ||
+    !('value' in metric)
+  ) {
+    // when value is absent, consider it invalid
+    invalid = true
+    isNull = true
+  }
+
+  switch (metric.type.toLowerCase()) {
+    case 'template':
+      type = 'json'
+      if ('value' in metric) {
+        // recurse to publish more metrics
+        if ('metrics' in metric.value) {
+          metric.value.metrics.forEach(m => {
+            queueMetric(m, deviceLocator, isBirth, metric.name)
+          })
+          return
+        } else {
+          valueJson = metric.value
+          valueString = JSON.stringify(metric.value)
+        }
+      }
+      break
+    case 'dataset':
+      // transform data set in a simpler array of objects with named properties
+      type = 'json'
+      if ('value' in metric) {
+        if ('numOfColumns' in metric.value) {
+          let v = []
+          for (let j = 0; j < metric.value.rows.length; j++) {
+            let r = {}
+            for (let i = 0; i < metric.value.numOfColumns; i++) {
+              let mv = metric.value.rows[j][i]
+              switch (metric.value.types[i].toLowerCase()) {
+                case 'int64':
+                case 'uint64':
+                  mv = (mv.low >>> 0) + (mv.high >>> 0) * Math.pow(2, 32)
+                  break
+                default:
+                  break
+              }
+              r[metric.value.columns[i]] = mv
+            }
+            v.push(r)
+          }
+          valueJson = v
+          valueString = JSON.stringify(v)
+        } else {
+          valueJson = metric.value
+          valueString = JSON.stringify(metric.value)
+        }
+      }
+      break
+    case 'boolean':
+      type = 'digital'
+      if (!('value' in metric) || metric.value === null) {
+        // metric does not have a value
+        value = 0
+        valueString = 'false'
+        valueJson = false
+      } else {
+        // metric does have a value
+        value = metric.value === false ? 0 : 1
+        valueString = metric.value.toString()
+        valueJson = metric
+      }
+      break
+    case 'string':
+      type = 'string'
+      if (!('value' in metric) || metric.value === null) {
+        // metric does not have a value
+        value = 0
+        valueString = ''
+        valueJson = ''
+      } else {
+        // metric does have a value
+        value = parseFloat(metric.value)
+        if (isNaN(value)) value = 0
+        valueString = metric.value
+        valueJson = metric
+        // try to parse value as JSON
+        try {
+          valueJson = JSON.parse(metric.value)
+        } catch (e) {}
+      }
+      break
+    case 'int32':
+    case 'uint32':
+    case 'float':
+    case 'double':
+      type = 'analog'
+      if (!('value' in metric) || metric.value === null) {
+        // metric does not have a value
+        value = 0
+        valueString = '0'
+        valueJson = 0
+      } else {
+        // metric does have a value
+        value = metric.value
+        valueString = value.toString()
+        valueJson = metric
+      }
+      break
+    case 'int64':
+    case 'uint64':
+      type = 'analog'
+      if (!('value' in metric) || metric.value === null) {
+        // metric does not have a value
+        value = 0
+        valueString = '0'
+        valueJson = 0
+      } else {
+        // metric does have a value
+        value =
+          (metric.value.low >>> 0) + (metric.value.high >>> 0) * Math.pow(2, 32)
+        valueString = value.toString()
+        valueJson = metric
+      }
+      break
+  }
+
+  if ('properties' in metric) {
+    if ('good' in metric.properties) {
+      invalid = !metric.properties.good.value
+    }
+    if ('timestampGood' in metric.properties) {
+      timestampGood = !metric.properties.timestampGood.value
+    }
+  }
+
+  if (isBirth) {
+    catalogProperties = {
+      description: '',
+      ungroupedDescription: '',
+      group1: '',
+      group2: '',
+      group3: '',
+      type: type
+    }
+
+    if ('metadata' in metric && 'description' in metric.metadata)
+      catalogProperties.description = metric.metadata.description
+
+    if ('properties' in metric) {
+      if ('description' in metric.properties) {
+        catalogProperties.description = metric.properties.description.value
+      }
+      catalogProperties.ungroupedDescription =
+        metric.properties?.ungroupedDescription?.value || ''
+      catalogProperties.group1 = metric.properties?.group1?.value || ''
+      catalogProperties.group2 = metric.properties?.group2?.value || ''
+      catalogProperties.group3 = metric.properties?.group3?.value || ''
+      if ('engUnit' in metric.properties)
+        catalogProperties.unit = metric.properties.engUnit?.value || 'units'
+    }
+    catalogProperties.commissioningRemarks =
+      'Auto created by Sparkplug B driver - ' + new Date().toISOString()
+  }
+
+  ValuesQueue.enqueue({
+    protocolSourceObjectAddress: objectAddress,
+    value: value,
+    valueString: valueString,
+    valueJson: valueJson,
+    invalid: invalid,
+    causeOfTransmissionAtSource: isBirth ? '20' : '3',
+    timeTagAtSource: new Date(timestamp),
+    timeTagAtSourceOk: timestampGood,
+    asduAtSource: type,
+    isNull: metric?.isNull === true,
+    ...catalogProperties
+  })
+}
+
+// Process received Sparkplug B command to possible protocol destinations (routed command)
+async function ProcessDeviceCommand (
+  deviceId,
+  metric,
+  timestamp,
+  mongoClient,
+  jscadaConnection,
+  configObj
+) {
+  if (!mongoClient) return
+  const db = mongoClient.db(configObj.mongoDatabaseName)
+  const rtCollection = db.collection(configObj.RealtimeDataCollectionName)
+  const cmdQueue = db.collection(configObj.CommandsQueueCollectionName)
+
+  Log.log(
+    'Sparkplug - Received command: ' +
+      deviceId +
+      '/' +
+      metric.name +
+      ' value:' +
+      metric.value
+  )
+
+  let res = await rtCollection
+    .find(
+      {
+        tag: metric.name,
+        origin: 'command'
+      },
+      {
+        projection: {
+          _id: 1,
+          tag: 1,
+          type: 1,
+          description: 1,
+          origin: 1,
+          kconv1: 1,
+          kconv2: 1,
+          protocolSourceConnectionNumber: 1,
+          protocolSourceObjectAddress: 1,
+          protocolSourceCommonAddress: 1,
+          protocolSourceASDU: 1,
+          protocolSourceCommandDuration: 1,
+          protocolSourceCommandUseSBO: 1
+        }
+      }
+    )
+    .toArray()
+
+  res.forEach(async element => {
+    if (element.origin !== 'command' || element._id <= 0) {
+      return
+    }
+
+    if (
+      element.protocolSourceConnectionNumber ===
+      jscadaConnection.protocolConnectionNumber
+    ) {
+      Log.log(
+        'Sparkplug - Discarding received command on the same driver connection: ' +
+          jscadaConnection.protocolConnectionNumber
+      )
+    }
+
+    let value = parseFloat(metric.value)
+    if (isNaN(value)) value = 0
+    let valueString = ''
+    let valueJson = {}
+
+    if ('type' in metric)
+      switch (metric.type.toLowerCase()) {
+        case 'boolean':
+          if (element.kconv1 === -1) value = metric.value ? 0 : 1
+          else value = metric.value ? 1 : 0
+          valueString = value ? 'true' : 'false'
+          valueJson = value ? true : false
+          break
+        case 'string':
+          valueString = metric.value
+          // try to parse value as JSON
+          try {
+            valueJson = JSON.parse(metric.value)
+          } catch (e) {}
+          break
+        case 'int32':
+        case 'uint32':
+        case 'float':
+        case 'double':
+          value = element.kconv1 * metric.value + element.kconv2
+          valueString = value.toString()
+          valueJson = value
+          break
+        case 'int64':
+        case 'uint64':
+          value =
+            (metric.value.low >>> 0) +
+            (metric.value.high >>> 0) * Math.pow(2, 32)
+          value = element.kconv1 * value + element.kconv2
+          valueString = value.toString()
+          valueJson = value
+          break
+        default:
+          valueString = JSON.stringify(metric)
+          valueJson = metric
+          break
+      }
+    else {
+      Log.log('Sparkplug - Invalid command!')
+      return
+    }
+
+    // insert command on commandsQueue collection
+
+    let cmd = {
+      protocolSourceConnectionNumber: element.protocolSourceConnectionNumber,
+      protocolSourceCommonAddress: element.protocolSourceCommonAddress,
+      protocolSourceObjectAddress: element.protocolSourceObjectAddress,
+      protocolSourceASDU: element.protocolSourceASDU,
+      protocolSourceCommandDuration: element.protocolSourceCommandDuration,
+      protocolSourceCommandUseSBO: element.protocolSourceCommandUseSBO,
+      pointKey: new Mongo.Double(element._id),
+      tag: element.tag,
+      value: new Mongo.Double(value),
+      valueString: valueString,
+      valueJson: valueJson,
+      originatorUserName: jscadaConnection.name,
+      originatorIpAddress:
+        jscadaConnection.endpointURLs[sparkplugProcess.currentBroker],
+      timeTag: new Date()
+    }
+
+    let rIns = await cmdQueue.insertOne(cmd)
+    if (rIns.insertedCount)
+      Log.log(
+        'MongoDB - Command Queued: ' + JSON.stringify(cmd),
+        Log.levelDetailed
+      )
+  })
+}
+
+// replace invalid topic name chars
+function topicStr (s) {
+  if (typeof s === 'string')
+    return s
+      .trim()
+      .replace(/\//g, '|')
+      .replace(/\+/g, '^')
+      .replace(/\#/g, '@')
+  return ''
+}
+
+// invalidate tags from device or node based on Sparkplug B topic path
+function InvalidateDeviceTags (
+  deviceTopicPath,
+  mongoClient,
+  jscadaConnection,
+  configObj
+) {
+  if (!mongoClient) return
+  try {
+    Log.log('MongoDB - Invalidate tags from ' + deviceTopicPath)
+    const db = mongoClient.db(configObj.mongoDatabaseName)
+    const rtCollection = db.collection(configObj.RealtimeDataCollectionName)
+    rtCollection.updateMany(
+      {
+        protocolSourceConnectionNumber:
+          jscadaConnection.protocolConnectionNumber,
+        protocolSourceObjectAddress: { $regex: '^' + deviceTopicPath }
+      },
+      { $set: { invalid: true } }
+    )
+  } catch (e) {
+    Log.log(
+      'MongoDB - Error invalidating tags from ' +
+        deviceTopicPath +
+        ' - ' +
+        e.message
+    )
+  }
+}
+
+// extract topic and jsonPath from topic/jsonPath
+// the last level must begin with $
+// E.g. /root/topicname/$.var1 topic=/root/topicname jsonPath=$.var1
+// If do not found a jsonPath in the last level, return topic and empty string for jsonPath
+function JsonPathTopic (jpTopic) {
+  let jsonPath = ''
+  let topic = jpTopic.trim()
+
+  const pos = topic.indexOf('/$.')
+  if (pos !== -1) {
+    jsonPath = topic.substring(pos + 1, topic.length)
+    topic = topic.substring(0, pos)
+  }
+
+  return {
+    topic: topic,
+    jsonPath: jsonPath
+  }
+}
+
+// convert possible JSON value to number and string and enqueue for mongo update
+function EnqueueJsonValue (JsonValue, protocolSourceObjectAddress) {
+  let value = 0,
+    valueString = '',
+    type = 'json'
+  switch (typeof JsonValue) {
+    case 'boolean':
+      type = 'digital'
+      value = JsonValue ? 1 : 0
+      valueString = JsonValue.toString()
+      break
+    case 'number':
+      type = 'analog'
+      value = JsonValue
+      valueString = JsonValue.toString()
+      break
+    case 'string':
+      type = 'string'
+      value = parseFloat(JsonValue)
+      valueString = JsonValue
+      break
+    default:
+      if (JsonValue === null) JsonValue = {}
+      else valueString = JSON.stringify(JsonValue)
+      break
+  }
+
+  if (isNaN(value)) value = 0
+  if (JsonValue === null) JsonValue = {}
+
+  ValuesQueue.enqueue({
+    protocolSourceObjectAddress: protocolSourceObjectAddress,
+    value: value,
+    valueString: valueString,
+    valueJson: JsonValue,
+    invalid: false,
+    transient: false,
+    causeOfTransmissionAtSource: '3',
+    timeTagAtSource: new Date(),
+    timeTagAtSourceOk: false,
+    asduAtSource: typeof JsonValue,
+    type: type
+  })
+}
+
+function TryPayloadAsRJson (payload) {
+  let payloadStr = ''
+  let JsonValue = null
+  try {
+    payloadStr = payload.toString()
+    // try to parse as regular JSON
+    JsonValue = JSON.parse(payloadStr)
+  } catch (e) {
+    // NOT STRICT JSON, try RJSON
+    try {
+      JsonValue = RJSON.parse(payloadStr)
+    } catch (e) {
+      // NOT JSON NOR RJSON, consider as string
+      JsonValue = payloadStr
+    }
+  }
+  return JsonValue
 }
