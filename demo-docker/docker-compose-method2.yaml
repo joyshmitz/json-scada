@@ -108,9 +108,11 @@ services:
     # set UID and GID variables 
     # or change default user and  group ids
     #user: "${UID:-1000}:${GID:-1000}"
+    # https://grafana.com/docs/grafana/latest/installation/docker/#migrate-to-v51-or-later
+    user: '472'
     restart: unless-stopped
     volumes: 
-      - ./grafana_data:/var/lib/grafana
+      - ./grafana_data:/var/lib/docker/volumes/grafana-storage/_data
     environment: 
       - GF_SERVER_DOMAIN=127.0.0.1
       - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:8080/grafana/
