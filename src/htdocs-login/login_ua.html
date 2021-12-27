@@ -188,13 +188,13 @@
   <div id="divlogin" class="login" style="display:none">
     <h1>
       <img height="90" src="images/json-scada.svg" alt="{json:scada}" />
-      <br />Вхід
+      <br />Login
     </h1>
 
     <input type="text" name="username" id="username" placeholder="Користувач" required="required" />
     <input type="password" name="password" id="password" placeholder="Пароль" required="required" />
     <button type="button" id="login" onclick="tryLogin()" class="btn btn-primary btn-block btn-large">
-      ВХІД
+      LOGIN
     </button>
 
     <div id="divloginerror" style="display:none">
@@ -208,32 +208,32 @@
     </h1>
 
     <button id="logout" type="button" onclick="tryLogout()" class="blocks btn btn-primary">
-      ВИХІД
+      LOGOUT
     </button>
 
     <div class="blocks">
       <a target="_blank" href="../display.html?SVGFILE=../svg/kaw2.svg">
-        <img height="40" src="images/tela.png" /><br />Мнемосхеми 
+        <img height="40" src="images/tela.png" /><br />Display Viewer
       </a>
     </div>
     <div class="blocks">
       <a target="_blank" href="../tabular.html?MODE=ALARMS_VIEWER">
-        <img height="40" src="images/firstaid.svg" /><br />Перегляд Тривог
+        <img height="40" src="images/firstaid.svg" /><br />Alarms Viewer
       </a>
     </div>
     <div class="blocks">
       <a target="_blank" href="../events.html">
-        <img height="40" src="images/chrono.svg" /><br />Перегляд Подій
+        <img height="40" src="images/chrono.svg" /><br />Events Viewer
       </a>
     </div>
     <div class="blocks">
       <a target="_blank" href="../tabular.html">
-        <img height="40" src="images/tabular.svg" /><br />Табличний Перегляд
+        <img height="40" src="images/tabular.svg" /><br />Tabular Viewer
       </a>
     </div>
     <div class="blocks" title="Grafana">
       <a id="grafana" target="_blank" href="/grafana">
-        <img height="40" src="images/grafana.ico" /><br />Панель Grafana
+        <img height="40" src="images/grafana.ico" /><br />Grafana Dashboards
       </a>
       <script>
           // use this to access Grafana on a distinct port or use some reverse proxy and remove this code
@@ -243,15 +243,15 @@
       </script>
     </div>
 
-    <!-- div class="blocks">
+    <div class="blocks">
       <a target="_blank" href="../about.html">
         <img height="40" src="images/json-scada.svg" /><br />About JSON SCADA
       </a>
-    </div -->
+    </div>
 
     <div class="blocks" id="divAdmin" title="Administrative Panel" style="display:none">
       <a target="_blank" href="../admin/">
-        <img height="40" src="images/admin.png" /><br />Адмін Панель
+        <img height="40" src="images/admin.png" /><br />Admin
       </a>
     </div>
   </div>
